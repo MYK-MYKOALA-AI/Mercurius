@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="https://mercurius.mykoala.com.au/"><img src="assets/mercurius-logo.webp" width="112" alt="Mercurius: Mercury wearing a winged helmet"></a>
+</p>
+
 # Mercurius
 
 **Free, open-source dictation for your Mac. Bring your own keys.**
@@ -6,7 +10,11 @@ Mercurius is a native macOS dictation app from [MyKoala](https://mykoala.com.au)
 
 [Website](https://mercurius.mykoala.com.au/) · [MyKoala](https://mykoala.com.au)
 
-> **Public repository status:** this repository contains the project README only. We are testing the app locally before publishing its source or downloads. No application code, binaries or development history have been uploaded here.
+[![Mercurius website with copper and cream colours, the approved Mercury logo and a historical Mercury etching](assets/website-preview.webp)](https://mercurius.mykoala.com.au/)
+
+<p align="center"><em>The live Mercurius website. Visit the site →</em></p>
+
+> **Public repository status:** this repository contains the project README and website presentation images only. We are testing the app locally before publishing its source or downloads. No application code, binaries or development history have been uploaded here.
 
 ## The idea
 
@@ -94,7 +102,7 @@ We have not established that Mercurius is more accurate or faster than every pai
 
 ## Publication and testing
 
-The public repository is intentionally limited to this README while local testing continues.
+The public repository is intentionally limited to project documentation and website presentation images while local testing continues.
 
 Before application source is published, we are validating:
 
@@ -112,10 +120,19 @@ The goal is a useful, inspectable release. There is no public installer, build c
 
 Mercurius is intended to be released under an open-source licence. The licence will be included with the application source release; the choice has not been finalised.
 
-A public README is not a source release or a licence grant for unpublished application code.
+Publishing project documentation and presentation images does not release or license the unpublished application code.
+
+## Visual identity
+
+The approved Mercury coin is the Mercurius brand mark. The linked preview shows the live website, not a released app or an application demo.
+
+The website illustration is **Master I.B., Mercury, from “The Gods Who Preside Over the Planets”, 1528**, an etching in The Metropolitan Museum of Art, Bequest of Phyllis Massar, 2011 (object 2012.136.745.6). The Met identifies its image as public domain. [Artwork and credit](https://www.metmuseum.org/art/collection/search/399744) · [Open Access policy](https://www.metmuseum.org/about-the-met/policies-and-documents/open-access). No museum endorsement is implied.
+
+Presentation images are stored in this repository’s `assets/` directory so the README does not depend on a third-party image host.
 
 ## Following the project
 
 Visit [mercurius.mykoala.com.au](https://mercurius.mykoala.com.au/) or watch this repository for updates. Keep API keys, transcripts, private recordings and personal data out of public issues.
 
 Built by [MyKoala](https://mykoala.com.au), Australia.
+
