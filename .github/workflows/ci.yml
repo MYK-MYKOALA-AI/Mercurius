@@ -10,7 +10,8 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test:
-    runs-on: macos-26
+    # shortcut: tests run on Intel; restore ARM when hosted capacity recovers.
+    runs-on: macos-26-intel
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -21,5 +22,7 @@ jobs:
           python3 scripts/check-public.py
       - name: Serial Swift tests
         run: swift test --jobs 2 --no-parallel
-      - name: Compile release executable
-        run: swift build --jobs 2 --configuration release --product CursusVox
+      - name: Compile and verify Apple Silicon release executable
+        run: |
+          swift build --jobs 2 --configuration release --triple arm64-apple-macosx26.0 --product CursusVox
+          lipo -verify_arch arm64 "$(swift build --configuration release --triple arm64-apple-macosx26.0 --show-bin-path)/CursusVox"
