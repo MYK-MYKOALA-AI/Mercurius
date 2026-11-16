@@ -937,9 +937,9 @@ struct HistoryEntry: Equatable {
             "\(ModelCosts.shortName(CloudSpeech.oneStepModel)) transcribes and cleans in one call.",
             "Audio never leaves this Mac, and nothing is cleaned online.",
             "Audio stays on this Mac. Online text cleanup is billed separately.",
-            "Audio goes directly to ElevenLabs and uses your credits. Standard provider retention applies. Dictionary words are not sent. Optional text cleanup uses OpenRouter."
+            "Audio goes directly to ElevenLabs and uses your credits. Standard provider retention applies. Dictionary keyterms are sent to ElevenLabs to help recognition. Optional text cleanup uses OpenRouter."
         ][min(selected, 4)]
-        // Only Grok takes dictionary key terms; say what another engine gives up.
+        // Only Grok takes dictionary terms through this model selector.
         if selected == 0, let id = speechModel.selectedItem?.representedObject as? String, !id.hasPrefix("x-ai/") {
             engineNote.stringValue = "\(ModelCosts.shortName(id)) transcribes; the cleanup model below tidies the text. Dictionary words are not sent to this speech model."
         }
