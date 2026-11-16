@@ -2,7 +2,7 @@
 
 # Mercurius
 
-**Free dictation for your Mac. Bring your own keys.**
+**Free, open-source dictation for your Mac. Bring your own keys.**
 
 Mercurius is a native macOS dictation app from [MyKoala](https://mykoala.com.au/). This repository contains an MIT-licensed source preview, tests, the Koa animation generator and the public website. The app is under active validation. **There is no verified public installer yet.**
 

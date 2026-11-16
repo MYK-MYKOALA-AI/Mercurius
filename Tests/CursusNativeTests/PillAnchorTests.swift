@@ -2,7 +2,7 @@ import AppKit
 import Testing
 @testable import CursusVox
 
-// The popup sits beside the text cursor (MYK-663).
+// The popup sits beside the text cursor.
 private let area = NSRect(x: 0, y: 30, width: 1440, height: 840)   // visibleFrame: Dock below, menu bar above
 private let size = NSSize(width: 380, height: 106)
 
