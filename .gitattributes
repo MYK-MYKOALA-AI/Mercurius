@@ -2,3 +2,4 @@
 Resources/cursus-clip.js linguist-generated=true -whitespace
 ThirdParty/** linguist-vendored=true -whitespace
 Resources/Licences.txt linguist-generated=true -whitespace
+apps/web/assets/fonts/OFL-*.txt -whitespace
