@@ -156,7 +156,7 @@ enum ModelCosts {
         task = Task { [weak self] in
             guard let self else { return }
             defer { task = nil }
-            guard let (data, response) = try? await session.data(from: ModelCosts.catalogURL),
+            guard let (data, response) = try? await MetadataResponse.data(for: URLRequest(url: ModelCosts.catalogURL), session: session, limit: ModelCosts.catalogLimit),
                   (response as? HTTPURLResponse)?.statusCode == 200, data.count <= ModelCosts.catalogLimit else { return }
             let parsed = ModelCosts.parse(data)
             guard !parsed.isEmpty else { return }
