@@ -78,7 +78,7 @@ Koa is one plush grey koala with a cream muzzle and orange headset. The app sele
 
 `Design/Koa/koa_build.py` rebuilds the character and clips in Blender 5.2. `--save` creates an editable master with all seven actions and a 208-frame timeline. Generated `.blend` files stay untracked because Blender can retain local workstation metadata. The included master-check script validates the saved poses. `Design/Koa/encode.swift` encodes complete frame sets through AVFoundation.
 
-Code and render scripts use MIT. Original Koa/Mercurius artwork is CC BY 4.0; trademark rights are reserved. The website's historical Mercury illustration is a public-domain 1528 etching from the Met. [Artwork credits and terms](LICENSE-ARTWORK.md) and [third-party notices](THIRD-PARTY-NOTICES.md) identify the separate rights.
+Code and render scripts use MIT. Original Koa/Mercurius artwork is CC BY 4.0; trademark rights are reserved. The website's historical Mercury illustration is a public-domain 1528 etching from the Met. [Artwork credits and terms](LICENSE-ARTWORK.md) and [third-party notices](THIRD-PARTY-NOTICES.md) identify the separate rights. The self-hosted website fonts have separate [SIL Open Font License notices](apps/web/assets/fonts/README.md).
 
 ## Development
 
