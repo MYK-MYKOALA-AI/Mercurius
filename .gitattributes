@@ -1,0 +1,4 @@
+# Generated templates contain intentional whitespace; preserve their bytes.
+Resources/cursus-clip.js linguist-generated=true -whitespace
+ThirdParty/** linguist-vendored=true -whitespace
+Resources/Licences.txt linguist-generated=true -whitespace

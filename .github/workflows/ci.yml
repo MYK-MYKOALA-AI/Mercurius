@@ -1,0 +1,25 @@
+name: Source checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: source-checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Check publication boundary
+        run: |
+          python3 Tests/ScriptTests/public_export.test.py
+          python3 Tests/ScriptTests/build.test.py
+          python3 scripts/check-public.py
+      - name: Serial Swift tests
+        run: swift test --jobs 2 --no-parallel
+      - name: Compile release executable
+        run: swift build --jobs 2 --configuration release --product CursusVox
