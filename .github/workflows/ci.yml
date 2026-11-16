@@ -25,4 +25,4 @@ jobs:
       - name: Compile and verify Apple Silicon release executable
         run: |
           swift build --jobs 2 --configuration release --triple arm64-apple-macosx26.0 --product CursusVox
-          lipo -verify_arch arm64 "$(swift build --configuration release --triple arm64-apple-macosx26.0 --show-bin-path)/CursusVox"
+          lipo "$(swift build --configuration release --triple arm64-apple-macosx26.0 --show-bin-path)/CursusVox" -verify_arch arm64
