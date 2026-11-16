@@ -1,138 +1,89 @@
-<p align="center">
-  <a href="https://mercurius.mykoala.com.au/"><img src="assets/mercurius-logo.webp" width="112" alt="Mercurius: Mercury wearing a winged helmet"></a>
-</p>
+<p align="center"><img src="assets/mercurius-logo.webp" width="112" height="112" alt="Mercurius — Mercury in a winged helmet"></p>
 
 # Mercurius
 
-**Free, open-source dictation for your Mac. Bring your own keys.**
+**Free dictation for your Mac. Bring your own keys.**
 
-Mercurius is a native macOS dictation app from [MyKoala](https://mykoala.com.au). It is being built as an independent alternative to paid dictation subscriptions: speak where you already write, choose how your words are processed, and use your own provider account when you want cloud models.
+Mercurius is a native macOS dictation app from [MyKoala](https://mykoala.com.au/). This repository contains an MIT-licensed source preview, tests, the Koa animation generator and the public website. The app is under active validation. **There is no verified public installer yet.**
 
-[Website](https://mercurius.mykoala.com.au/) · [MyKoala](https://mykoala.com.au)
+[Website](https://mercurius.mykoala.com.au/) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [MIT code licence](LICENSE)
 
-[![Mercurius website with copper and cream colours, the approved Mercury logo and a historical Mercury etching](assets/website-preview.webp)](https://mercurius.mykoala.com.au/)
+[![Mercurius website preview](assets/website-preview.webp)](https://mercurius.mykoala.com.au/)
 
-<p align="center"><em>The live Mercurius website. Visit the site →</em></p>
+*Website design preview. The live site carries the current publication-status wording; this image is not a native-app demo.*
 
-> **Public repository status:** this repository contains the project README and website presentation images only. We are testing the app locally before publishing its source or downloads. No application code, binaries or development history have been uploaded here.
+## What it does
 
-## The idea
+Hold the configured dictation shortcut, speak, and release. Mercurius recognises your speech, optionally cleans up the transcript, and delivers it to the focused editor or keeps it available to copy. Koa and a waveform show recording progress.
 
-Dictation should be a tool you control. Mercurius is intended to be free software, with no required Mercurius subscription and no MyKoala account needed for dictation.
+The source includes on-device Apple speech, OpenRouter cloud transcription/cleanup and direct ElevenLabs Scribe. You supply your own provider keys. The personal dictionary starts empty; users add their own terms and explicit replacements. Per-app styles, recovery, clipboard/history views and usage reporting are implemented. Additional native capture and web-clipping tools are included; they need their own Accessibility/browser/Screen Recording permissions and native testing.
 
-Use on-device speech when you want your audio and text to stay on your Mac. Or connect your own OpenRouter or supported provider key and pay that provider directly for the models you choose. You decide whether cloud recognition or cloud text cleanup is useful for your work.
+These are implemented features, not a claim of compatibility with every editor or parity with every dictation product. Accuracy, latency and provider availability depend on the engine, language, hardware and account.
 
-**Free software does not mean free cloud inference.** Provider usage charges, credit balances, rate limits and retention policies still apply. There is no promise that every model or free endpoint will be available to every key.
+## Local and cloud processing
 
-## What it is designed to do
+| Mode | What leaves your Mac | Provider charges |
+|---|---|---|
+| On-device speech, cloud cleanup off | No audio or transcript; the public model-price catalogue can still be fetched | No speech/cleanup API charge |
+| On-device speech with cloud cleanup | Transcript, app context and dictionary hints go to OpenRouter | Your selected cleanup model |
+| OpenRouter speech | Audio goes to OpenRouter and the selected provider; cleanup may be a separate text request | Your transcription and optional cleanup models |
+| ElevenLabs Scribe | Audio and dictionary keyterms go to ElevenLabs; optional cleanup goes to OpenRouter | Your ElevenLabs credits/billing plus optional cleanup |
 
-These features are implemented in the private development build and are undergoing local validation. They are not a claim that a public release is ready.
+Bring-your-own-key does not mean cloud processing happens locally. Provider retention and free-model training policies apply. The app requests denied data collection for normal OpenRouter routes; free catalogue routes can require different terms. Read the in-app labels before selecting one.
 
-- **Dictate into Mac apps.** Hold your configured shortcut, speak, then release it to finish. Mercurius delivers the resulting text into the app you are using.
-- **See recognition progress.** A small recording panel shows listening and processing state, with local live-word preview where an installed recognizer supports it.
-- **Choose the speech engine.** Use Apple on-device speech, supported OpenRouter transcription routes, or the direct ElevenLabs Scribe integration.
-- **Make cleanup optional.** Keep recognition separate from optional cloud text cleanup. Choose a writing style for each app and decide whether to remove filler words or tidy punctuation.
-- **Keep your vocabulary.** Add names, project terms and explicit spelling replacements. Provider hint support and limits vary.
-- **Reuse phrases.** Save snippets that can expand when the whole recording matches their cue.
-- **Review and recover.** Use recent Activity, copy results and retry supported operations rather than losing the words after a failed insertion.
-- **Rewrite or translate deliberately.** Generate a cloud preview, review it, then choose whether to copy or replace the selected text.
-- **See usage.** Show provider-reported charges when available, with approximate or separate credit accounting when an exact dollar charge is unavailable.
+Each user saves their own keys into macOS Keychain through an explicit Save action. No working API key, developer Keychain, signing credential or private account configuration is included here. Avoid putting keys in command arguments or source files.
 
-Native editor support, shortcuts, microphone behaviour and recovery are being tested on real Macs. A passing unit test is not a guarantee that every editor or microphone setup works.
+The public source uses bundle ID `au.com.mykoala.mercurius` and separate Keychain/log/outbox namespaces. It does not read a developer's prototype keys or settings. Internal Swift target/executable names still use CursusVox. Data folders use Mercurius names; there is no automatic migration from the private prototype.
 
-## Bring your own keys
+## Build from source
 
-The integrations currently being validated are:
+Requirements: an Apple Silicon Mac, macOS 26 or later, a toolchain supporting the Swift 6.2 package manifest, and your own Apple Development or Developer ID Application signing identity for a bundled app. There are no Swift package dependencies.
 
-| Route | What you provide | What runs remotely |
-| --- | --- | --- |
-| Apple on-device speech | No API key; installed macOS speech assets and the relevant permissions | No speech processing or text cleanup when cloud cleanup is off |
-| OpenRouter | Your own OpenRouter API key | Selected supported cloud transcription and/or text cleanup |
-| Direct ElevenLabs Scribe | Your own ElevenLabs API key | Audio transcription; optional OpenRouter cleanup uses a separate OpenRouter key |
+```sh
+git clone https://github.com/SHAMALKRISHNA/Mercurius.git
+cd Mercurius
+swift test --jobs 2 --no-parallel
+python3 Tests/ScriptTests/public_export.test.py
+python3 Tests/ScriptTests/build.test.py
+python3 scripts/check-public.py
+```
 
-OpenRouter provides access to different providers and models through one account. A model appearing in a catalogue does not guarantee that the current adapter, your account permissions or your balance can run it.
+To build a local app, set `MERCURIUS_SIGNING_IDENTITY` to your own identity and run:
 
-Mercurius does not require sending provider keys to a MyKoala server. The native build stores saved keys in this Mac's Keychain. Saving a key is an explicit action; it does not itself prove that the provider connection, credit balance or transcription works.
+```sh
+sh scripts/build-app.sh
+```
 
-We are not publishing sample credentials, shared API accounts or an inference proxy.
+The script prints a new `dist/Mercurius.XXXXXXXX/Mercurius.app` path. It does not install or launch the app, read API keys, unlock a Keychain or overwrite an existing installation. If your signing identity is in a separate unlocked Keychain, set `MERCURIUS_SIGNING_KEYCHAIN` to its path. Ad-hoc signing is not supported. It bundles the code, artwork and third-party licence notices in `Contents/Resources/Licences.txt`. This contributor build is not a notarised public release.
 
-## “Runs locally” and “processed locally” are different
+Open that built app yourself, then follow setup. Microphone is needed for recording. Accessibility supports shortcuts and insertion; speech recognition supports Apple speech/live preview. Browser automation and Screen Recording are only for the associated capture tools. Permissions after a rebuild can depend on your signing identity.
 
-The app runs on your Mac. Where recognition and cleanup happen depends on the mode you select.
+Some Command Line Tools installations fail to find Swift's TestingMacros plugin. Prefer a compatible full Xcode toolchain. If your installed toolchain already contains the plugin, its explicit `-Xswiftc -load-plugin-library -Xswiftc /path/to/libTestingMacros.dylib` flags can resolve discovery. Do not download a random plugin binary.
 
-| Mode | Audio | Transcript/text | Per-call API cost |
-| --- | --- | --- | --- |
-| On-device speech, cloud cleanup off | Stays on your Mac | Stays on your Mac | None |
-| On-device speech with cloud cleanup | Stays on your Mac | Sent to the selected cleanup service | Cleanup provider charges may apply |
-| Cloud speech | Sent to the selected speech provider | Returned to your Mac; optional cleanup may send it to a cleanup provider | Speech and any cleanup charges may apply |
+## Testing and current limits
 
-For **fully local dictation**, choose on-device speech and switch cloud cleanup off. Features that explicitly generate cloud previews, such as AI rewrite or translation, also need to remain unused for that workflow to stay local.
+The initial snapshot is intended for local developer testing. The default serial suite passes with three opt-in live speech/YouTube checks skipped. Automated policy, cleanup, capture, credential, UI and asset fixtures are included. AppKit fixtures must run serially. Unit tests do not prove microphone recording, physical shortcuts, focus safety, editor delivery, login startup or recognition quality on another Mac.
 
-Setup may require downloading chosen macOS speech assets. The app can fetch public model and price metadata without sending dictation content. Local mode is a statement about audio and text processing, not a promise that the application never makes any network request.
+Current limits include 60-second dictation recordings, English-oriented cloud transcription, Apple Silicon/macOS 26+, and varying editor Accessibility support. The current live words appear in the recording pill; they are not continuously typed at the caret. Final insertion and clipboard fallback still need editor-specific testing.
 
-Cloud providers have their own retention and data-use policies. Vocabulary hints, dictionary keyterms or cleanup context can accompany the relevant requests. A zero-price model is not automatically a private model.
+When you clip a YouTube page, the app attempts to fetch captions through an undocumented YouTube player endpoint using an iOS client identifier. This is not an official YouTube API integration; it can be refused or stop working when YouTube changes the service. No logged-in YouTube account is used.
 
-## Local data and permissions
+Private audio/TTS fixtures are intentionally not distributed. The opt-in `CURSUS_TEST_LOCAL_SPEECH` checks need separately authored fixtures and installed Apple speech assets; they are not part of the default reproducible test run. Live-provider, physical microphone and native delivery checks are not CI acceptance. Do not enable live-provider tests without controlling your own account costs.
 
-Mercurius is designed around local application storage, scoped Keychain credentials and explicit permission setup.
+Usage totals can be approximate when a provider omits charges. ElevenLabs credit balance is account-wide. Budget warnings are not a hard spending cap, and token-priced audio costs may need additional price-unit qualification.
 
-Microphone permission allows recording. Speech Recognition permission applies to the local speech features that need it. Accessibility and the selected shortcut permissions support delivery into other apps. Additional capture tools can request their own relevant permissions when used.
+## Koa and visual identity
 
-Recent dictation text is short-lived; saved vocabulary, snippets and captured library items have their own local persistence. Do not assume every feature uses the same retention period.
+Koa is one plush grey koala with a cream muzzle and orange headset. The app selects seven transparent 24 fps clips: entrance, calm listening, expressive listening, thinking, success, error and shrug. These total about 1.34 MB and decode once into small frames. System Reduce Motion and Still keep Koa still. Walking and speech-synchronised talking are not implemented.
 
-The current build includes guarded delivery rules for secure fields and excluded applications. These boundaries still require real-world verification before public release.
+`Design/Koa/koa_build.py` rebuilds the character and clips in Blender 5.2. `--save` creates an editable master with all seven actions and a 208-frame timeline. Generated `.blend` files stay untracked because Blender can retain local workstation metadata. The included master-check script validates the saved poses. `Design/Koa/encode.swift` encodes complete frame sets through AVFoundation.
 
-## What “free” means
+Code and render scripts use MIT. Original Koa/Mercurius artwork is CC BY 4.0; trademark rights are reserved. The website's historical Mercury illustration is a public-domain 1528 etching from the Met. [Artwork credits and terms](LICENSE-ARTWORK.md) and [third-party notices](THIRD-PARTY-NOTICES.md) identify the separate rights.
 
-- The intended app model is free software, without a required app subscription.
-- On-device recognition with cloud cleanup off has no per-call API charge.
-- Cloud speech and cleanup use your own provider accounts and allowances.
-- Provider costs are separate from the app. Mercurius cannot promise free credits, unlimited usage or permanently free models.
-- Usage displays are informative; do not treat them as a provider-side spending cap.
+## Development
 
-No subscription tiers, hosted inference plan or commercial pricing is being announced here.
+`Sources/CursusCore` owns policy and cleanup rules; `Sources/CursusVox` and `CursusPlatform` adapt native APIs. `Tests` contains deterministic fixtures. `apps/web` is a dependency-free static site with no application keys, login or backend. You can preview those static files with any local static server.
 
-## Platform and current limits
+Please submit small, reproducible issues and pull requests. Strip private transcripts, recordings, credentials and screenshots before sharing. For confidential reports, follow [SECURITY.md](SECURITY.md).
 
-The current development target is **Apple Silicon Macs running macOS 26 or later**.
-
-The build is focused on short, everyday dictation. Current constraints include a 60-second recording limit, English-focused cloud adapters and varying editor support. On-device languages depend on installed macOS assets. There is no Windows, Linux, iOS or Android release, account sync or meeting-transcription product in this repository.
-
-We have not established that Mercurius is more accurate or faster than every paid dictation app. Accuracy, latency, memory use and cost need to be compared on the same real speech and hardware.
-
-## Publication and testing
-
-The public repository is intentionally limited to project documentation and website presentation images while local testing continues.
-
-Before application source is published, we are validating:
-
-- Recording, stopping, cancellation and shortcut behaviour.
-- Real-editor insertion, clipboard fallback and duplicate prevention.
-- Local speech availability, cloud errors, retries and recovery.
-- Keychain access, privacy boundaries and permission handling.
-- Vocabulary, snippets, cleanup and literal/code preservation.
-- Latency, memory, audio quality and provider costs on comparable samples.
-- Packaging, signatures, dependency/asset licences and repository history.
-
-The goal is a useful, inspectable release. There is no public installer, build command or release date yet. We will publish selected source and release material after local qualification and an explicit publication decision.
-
-## Open-source licence
-
-Mercurius is intended to be released under an open-source licence. The licence will be included with the application source release; the choice has not been finalised.
-
-Publishing project documentation and presentation images does not release or license the unpublished application code.
-
-## Visual identity
-
-The approved Mercury coin is the Mercurius brand mark. The linked preview shows the live website, not a released app or an application demo.
-
-The website illustration is **Master I.B., Mercury, from “The Gods Who Preside Over the Planets”, 1528**, an etching in The Metropolitan Museum of Art, Bequest of Phyllis Massar, 2011 (object 2012.136.745.6). The Met identifies its image as public domain. [Artwork and credit](https://www.metmuseum.org/art/collection/search/399744) · [Open Access policy](https://www.metmuseum.org/about-the-met/policies-and-documents/open-access). No museum endorsement is implied.
-
-Presentation images are stored in this repository’s `assets/` directory so the README does not depend on a third-party image host.
-
-## Following the project
-
-Visit [mercurius.mykoala.com.au](https://mercurius.mykoala.com.au/) or watch this repository for updates. Keep API keys, transcripts, private recordings and personal data out of public issues.
-
-Built by [MyKoala](https://mykoala.com.au), Australia.
-
+Mercurius is free software; external APIs can cost money. This project is independent of Wispr, Superwhisper, OpenRouter, ElevenLabs and Apple. No third party endorses it.

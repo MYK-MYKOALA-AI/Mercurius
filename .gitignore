@@ -1,0 +1,16 @@
+.build/
+dist/
+.artifacts/
+.env
+.env.*
+*.keychain*
+*.p12
+*.p8
+*.pem
+*.sqlite*
+*.jsonl
+.DS_Store
+Design/Koa/*.blend*
+Tests/CursusNativeTests/Fixtures/
+__pycache__/
+*.py[cod]

@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://mercurius.mykoala.com.au/sitemap.xml

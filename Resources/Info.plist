@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Capturing a Google Doc, Sheet or Slides file asks your browser for the document's address and content.</string>
+<key>CFBundleDevelopmentRegion</key><string>en_AU</string>
+<key>CFBundleExecutable</key><string>CursusVox</string>
+<key>CFBundleIdentifier</key><string>au.com.mykoala.mercurius</string>
+<key>CFBundleName</key><string>Mercurius</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
+<key>CFBundleDisplayName</key><string>Mercurius</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleShortVersionString</key><string>0.2.0</string>
+<key>CFBundleVersion</key><string>2</string>
+<key>LSMinimumSystemVersion</key><string>26.0</string>
+<key>LSUIElement</key><true/>
+<key>NSHighResolutionCapable</key><true/>
+<key>NSDownloadsFolderUsageDescription</key><string>When you capture a Google Doc with fn+W or fn+T, your browser saves the document to Downloads; Mercurius reads that one file and deletes it.</string>
+<key>NSMicrophoneUsageDescription</key><string>Mercurius records only after you start dictation. On-device speech keeps audio on this Mac. Cloud speech sends audio to OpenRouter, or directly to ElevenLabs when you choose Scribe.</string>
+<key>NSSpeechRecognitionUsageDescription</key><string>Mercurius uses Apple speech on this Mac for local dictation after you start recording. It downloads only the languages you choose and never switches to cloud speech on its own.</string>
+</dict></plist>
