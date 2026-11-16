@@ -30,6 +30,7 @@ class BuildBoundary(unittest.TestCase):
         binary = tools / 'CursusVox'
         binary.write_text('fixture executable')
         for name, text in {
+            'uname': '#!/bin/sh\nprintf "%s\\n" "$FIXTURE_ARCH"\n',
             'xcrun': '#!/bin/sh\ncase "$*" in *--show-bin-path*) printf "%s\\n" "$FIXTURE_BIN";; esac\n',
             'plutil': '#!/bin/sh\nexit 0\n',
             'codesign': '#!/bin/sh\nexit 0\n',
@@ -38,7 +39,8 @@ class BuildBoundary(unittest.TestCase):
             path.write_text(text)
             path.chmod(0o755)
         env = {'PATH': str(tools) + os.pathsep + os.environ['PATH'], 'HOME': os.environ['HOME'],
-               'FIXTURE_BIN': str(tools), 'MERCURIUS_SIGNING_IDENTITY': 'Fixture identity'}
+               'FIXTURE_BIN': str(tools), 'FIXTURE_ARCH': 'arm64',
+               'MERCURIUS_SIGNING_IDENTITY': 'Fixture identity'}
         return root, env
 
     def test_source_archive_and_git_clone_have_honest_source_stamps(self):
@@ -69,20 +71,26 @@ class BuildBoundary(unittest.TestCase):
                 else:
                     self.assertEqual(info['CursusSourceRevision'], 'source-archive')
 
-    def test_missing_identity_ad_hoc_and_symlinked_resources_fail_before_build(self):
-        for invalid in ['missing', 'ad-hoc', 'symlink']:
+    def test_invalid_identity_resources_and_host_fail_before_build(self):
+        for invalid in ['missing', 'ad-hoc', 'symlink', 'intel']:
             with self.subTest(invalid=invalid), tempfile.TemporaryDirectory() as directory:
                 root, env = self.fixture(Path(directory))
                 if invalid == 'missing':
                     env.pop('MERCURIUS_SIGNING_IDENTITY')
                 elif invalid == 'ad-hoc':
                     env['MERCURIUS_SIGNING_IDENTITY'] = '-'
+                elif invalid == 'intel':
+                    env['FIXTURE_ARCH'] = 'x86_64'
                 else:
                     icon = root / 'Resources/AppIcon.icns'
                     icon.unlink()
                     icon.symlink_to(root / 'Resources/cursus-clip.js')
                 result = subprocess.run(['sh', 'scripts/build-app.sh'], cwd=root, env=env, capture_output=True)
                 self.assertNotEqual(result.returncode, 0)
+                expected = {'missing': b'Set your own Apple', 'ad-hoc': b'ad-hoc signing is not supported',
+                            'symlink': b'Missing or symlinked resource: AppIcon.icns',
+                            'intel': b'Requires an Apple Silicon Mac.'}
+                self.assertIn(expected[invalid], result.stderr)
                 self.assertFalse((root / 'dist').exists())
 
 
