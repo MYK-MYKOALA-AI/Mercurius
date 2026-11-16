@@ -30,7 +30,7 @@ import ObjectiveC
     var keyterms: () -> [String] = { [] }
     private(set) var localeIdentifier: String?
     private var session = 0
-    private var input: AsyncStream<AnalyzerInput>.Continuation?
+    private var input: PreviewInput?
     private var analyzer: SpeechAnalyzer?
     private var tasks: [Task<Void, Never>] = []
     // About a minute of speech; the pill shows only the tail anyway.
@@ -48,14 +48,12 @@ import ObjectiveC
         let id = session
         localeIdentifier = nil
         let (stream, continuation) = AsyncStream<AnalyzerInput>.makeStream(bufferingPolicy: .bufferingOldest(Self.queueLimit))
-        input = continuation
-        let held = HeldLeases()
+        let input = PreviewInput(continuation)
+        self.input = input
+        let held = input.leases
         leases = held
         tasks.append(Task { [weak self] in await self?.run(stream, id: id) })
-        return { buffer, lease in
-            // A chunk the queue refuses gives its lease straight back.
-            if case .enqueued = continuation.yield(AnalyzerInput(buffer: buffer)) { held.add(lease, buffer: buffer) }
-        }
+        return { input.append($0, lease: $1) }
     }
     private var leases: HeldLeases?
 
@@ -172,6 +170,27 @@ import ObjectiveC
         guard id == session else { return }
         input?.finish(); input = nil
         if let reason, unavailable != reason { unavailable = reason; changed?() }
+    }
+}
+
+// A retained audio tap must not retain the finished stream's queued PCM.
+private final class PreviewInput: @unchecked Sendable {
+    let leases = HeldLeases()
+    private let lock = NSLock()
+    private var continuation: AsyncStream<AnalyzerInput>.Continuation?
+    init(_ continuation: AsyncStream<AnalyzerInput>.Continuation) { self.continuation = continuation }
+    func append(_ buffer: AVAudioPCMBuffer, lease: AudioLease) {
+        lock.withLock {
+            if let continuation, case .enqueued = continuation.yield(AnalyzerInput(buffer: buffer)) {
+                leases.add(lease, buffer: buffer)
+            }
+        }
+    }
+    func finish() {
+        lock.withLock {
+            continuation?.finish()
+            continuation = nil
+        }
     }
 }
 

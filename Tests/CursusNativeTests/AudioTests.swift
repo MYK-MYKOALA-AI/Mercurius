@@ -51,10 +51,15 @@ private func fixture(rate: Double = 16_000, frames: UInt32 = 1600) throws -> AVA
 
 @MainActor @Test func endingPreviewDoesNotReleaseARetainedQueuedBuffer() async throws {
     let budget = AudioBudget()
-    let preview = LivePreview()
-    var buffer: AVAudioPCMBuffer? = try fixture()
+    let preview = LivePreview(authorization: { .denied })
+    var buffer: AVAudioPCMBuffer?
     let tap = preview.begin()
-    tap(try #require(buffer), try budget.reserve(3200))
+    // Drain Objective-C temporaries before asserting ownership across suspension.
+    try autoreleasepool {
+        buffer = try fixture()
+        tap(try #require(buffer), try budget.reserve(3200))
+    }
+    weak var retained = buffer
     await preview.end().value
     // Teardown has released its side array; the test still owns the PCM buffer.
     #expect(budget.allocatedBytes == 3200)
@@ -62,6 +67,7 @@ private func fixture(rate: Double = 16_000, frames: UInt32 = 1600) throws -> AVA
     tap(try fixture(), try budget.reserve(3200))
     #expect(budget.allocatedBytes == 3200)
     buffer = nil
+    #expect(retained == nil)
     #expect(budget.allocatedBytes == 0)
 }
 

@@ -116,6 +116,20 @@ private let rules = "Can you open CursusVox and check the Grok transcription acc
         #expect(outcome.charges.allSatisfy { $0.usd != nil })
         #expect(zip(outcome.charges.compactMap(\.usd), [0.0003, 0.0001]).allSatisfy { abs($0 - $1) < 1e-12 })
     }
+    @Test func replyReaderKeepsItsMemoryCeiling() async throws {
+        ChatFixture.replies = [String(repeating: "x", count: AICleanup.readCeiling)]
+        ChatFixture.costs = []
+        ChatFixture.delay = 0; ChatFixture.requests = 0; ChatFixture.finish = "stop"
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [ChatFixture.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        let (bytes, _) = try await session.bytes(for: URLRequest(url: URL(string: "https://fixture.invalid/reply")!))
+        do {
+            _ = try await AICleanup.readReply(bytes)
+            Issue.record("A reply above the memory ceiling must be rejected")
+        } catch AudioFailure.limit {}
+    }
     @Test func acceptedRewriteIsUsedWithItsModel() async {
         ChatFixture.replies = [rules]; ChatFixture.delay = 0; ChatFixture.requests = 0; ChatFixture.finish = "stop"
         let outcome = await AICleanup(protocolClasses: [ChatFixture.self])

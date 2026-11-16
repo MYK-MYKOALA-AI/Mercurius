@@ -362,11 +362,7 @@ struct CleanupOutcome: Equatable, Sendable {
             Self.requestBody(model, raw: raw, context: context, vocabulary: vocabulary, smart: smart))
         let (bytes, response) = try await session.bytes(for: request, delegate: NoCredentialRedirects())
         guard let response = response as? HTTPURLResponse else { throw AudioFailure.conversion }
-        var data = Data()
-        for try await byte in bytes {
-            guard data.count < Self.readCeiling else { throw AudioFailure.limit }
-            data.append(byte)
-        }
+        let data = try await Self.readReply(bytes)
         let parsed = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
         let reported = (parsed?["usage"] as? [String: Any])?["cost"] as? Double
         guard (200..<300).contains(response.statusCode) else { throw ChargedFailure(failure: CloudFailure.status(response.statusCode),cost: reported) }
@@ -384,5 +380,15 @@ struct CleanupOutcome: Equatable, Sendable {
               let content = message["content"] as? String,
               content.utf8.count <= Policy.textLimit else { throw ChargedFailure(failure: AudioFailure.conversion, cost: cost) }
         return (content, cost)
+    }
+
+    // Foundation buffers the bytes; draining them must not hop to MainActor for each byte.
+    @concurrent nonisolated static func readReply(_ bytes: URLSession.AsyncBytes) async throws -> Data {
+        var data = Data()
+        for try await byte in bytes {
+            guard data.count < Self.readCeiling else { throw AudioFailure.limit }
+            data.append(byte)
+        }
+        return data
     }
 }

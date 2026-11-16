@@ -51,6 +51,7 @@ private let counts: [KoaClip: Int] = [.popIn: 12, .listenCalm: 48, .listenLoud: 
 // Through the pill itself: the result starts empty, types forward, and completes after a stall.
 @MainActor @Test func pillTypesTheResultThenCompletes() {
     let pill = RecordingPill()
+    pill.reduceMotion = { false }
     pill.show(.done("Pasted into Notes"), now: 100)
     #expect(pill.shownResult == "")
     pill.animationFrame(now: 100.125)   // 7.5 characters' worth
