@@ -13,13 +13,13 @@ import CursusCore
         var request = URLRequest(url: URL(string: endpoint)!)
         request.setValue(elevenLabs ? key : "Bearer " + key, forHTTPHeaderField: elevenLabs ? "xi-api-key" : "Authorization")
         do {
-            let (bytes, response) = try await session.bytes(for: request, delegate: NoCredentialRedirects())
+            let (data, response) = try await MetadataResponse.data(for: request, session: session, limit: 64 * 1024)
             guard let response = response as? HTTPURLResponse else { return (.unknown,"Provider status unknown") }
             guard (200..<300).contains(response.statusCode) else { return (.needsAttention,"Provider check HTTP \(response.statusCode). Check key permissions in Settings.") }
-            var data = Data()
-            for try await byte in bytes { guard data.count < 64*1024 else { return (.unknown,"Provider response exceeded limit") }; data.append(byte) }
             guard (try? JSONSerialization.jsonObject(with: data)) is [String: Any] else { return (.unknown,"Invalid provider metadata") }
             return (.ready,summary(data, elevenLabs: elevenLabs) + " · checked \(Date().formatted())")
+        } catch MetadataResponse.Failure.tooLarge {
+            return (.unknown,"Provider response exceeded limit")
         } catch { return (.needsAttention,"Provider status unavailable. Check connection or key permissions.") }
     }
     // The footer's credit figure. Read-only; nil if the key can't read it.
@@ -30,7 +30,7 @@ import CursusCore
         let session = URLSession(configuration: configuration); defer { session.invalidateAndCancel() }
         var request = URLRequest(url: URL(string: "https://api.elevenlabs.io/v1/user/subscription")!)
         request.setValue(key, forHTTPHeaderField: "xi-api-key")
-        guard let (data, response) = try? await session.data(for: request, delegate: NoCredentialRedirects()),
+        guard let (data, response) = try? await MetadataResponse.data(for: request, session: session, limit: 64 * 1024),
               (response as? HTTPURLResponse).map({ (200..<300).contains($0.statusCode) }) == true else { return nil }
         return credits(data)
     }
