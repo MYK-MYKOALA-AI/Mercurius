@@ -912,7 +912,7 @@ struct HistoryEntry: Equatable {
     // Catalogue rates appear only in picker menus; history and daily usage show actual charges.
     func refreshPrices() {
         for (index, item) in engine.itemArray.enumerated() where index < Self.engineNames.count {
-            let price = Self.engineModels[index].flatMap { price?($0) }.flatMap(ModelCosts.label)
+            let price = Self.engineModels[index].flatMap { self.price?($0) }.flatMap(ModelCosts.label)
             item.title = Self.engineNames[index] + (index == 2 ? " · free" : index == 3 ? " · speech free" : price.map { " · " + $0 } ?? "")
         }
         let cleanupByID = Dictionary(cleanupModels.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
