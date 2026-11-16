@@ -72,7 +72,7 @@ import CursusCore
     home.savedDictionary = { (terms: ["Vercel", "Tessah"], replacements: ["vassal": "Vercel"]) }
     home.dropTakeBacks.state = .on
     home.takeBackPhrases = { TakeBack.defaults + ["no weight"] }
-    home.suggestions = { [.init(term: "Riverton", count: 5), .init(term: "Koda", count: 3)] }
+    home.suggestions = { [.init(term: "Riverton", count: 5), .init(term: "Kora", count: 3)] }
     home.update(history: [HistoryEntry(text: "Send Sam the build notes before lunch.", at: Date(),
                                        detail: "Grok · 2.1 s · cleaned 0.3 s"),
                           HistoryEntry(text: "Deploy the Supabase migration then ping me on Telegram.", at: Date(),

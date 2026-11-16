@@ -3,7 +3,7 @@ import Testing
 @testable import CursusVox
 
 // Speech languages… opened a window while the Home panel closed; handing focus back to the
-// previous app then buried that window, which looked like a crash (MYK-663).
+// previous app then buried that window, which looked like a crash.
 @MainActor @Test func anOpenTitledWindowKeepsFocusWithCursusVox() {
     _ = NSApplication.shared
     let feature = FeatureWindow(title: "Speech languages")

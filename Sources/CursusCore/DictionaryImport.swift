@@ -223,7 +223,7 @@ public enum CorrectionLearner {
     }
     // A slip of the keyboard, not a name: an ordinary word with two letters swapped or one letter
     // doubled or dropped ("This" -> "Thsi", "Okay" -> "Okayy"), or several words run together with no
-    // capital inside ("on my koala" -> "Onmykoala"). "Cody" -> "Koda" is none of these.
+    // capital inside ("on my koala" -> "Onmykoala"). "Cory" -> "Kora" is none of these.
     public static func isKeyboardSlip(heard: String, correct: String, isCommonWord: (String) -> Bool) -> Bool {
         let words = heard.split(whereSeparator: \.isWhitespace)
         if words.count > 1, !correct.contains(" "), !correct.dropFirst().contains(where: \.isUppercase) { return true }
