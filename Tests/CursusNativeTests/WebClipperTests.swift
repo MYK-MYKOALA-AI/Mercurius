@@ -4,9 +4,9 @@ import Testing
 @testable import CursusVox
 
 private let article = """
-<!doctype html><html lang="en"><head><title>Ship it Friday | Koda Notes</title>
+<!doctype html><html lang="en"><head><title>Ship it Friday | Kora Notes</title>
 <meta name="author" content="Example Author"><meta name="description" content="How we ship.">
-<meta property="og:site_name" content="Koda Notes"></head>
+<meta property="og:site_name" content="Kora Notes"></head>
 <body><nav>Home · About · Login</nav><article><h1>Ship it Friday</h1>
 <p>We ship every <strong>Friday</strong>. The checklist lives in <a href="/docs/checklist">the docs</a>.</p>
 <ul><li>Run the tests</li><li>Tag the release</li></ul><pre><code>swift test</code></pre>

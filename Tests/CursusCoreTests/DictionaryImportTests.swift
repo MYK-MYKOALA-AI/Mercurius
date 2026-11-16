@@ -11,14 +11,14 @@ private let existing = Vocabulary(terms: ["Supabase", "Grok"], replacements: ["s
     - **Tessah**
     • Riverton (suburb)
     * vassal → Vercel
-    2) koda -> Koda
+    2) kora -> Kora
     Supabase
     superlongnamethatgoesonandonandonandonandonandonandonandon
     """
     let result = DictionaryImport.parse(answer, existing: existing)
-    #expect(result.newTerms == ["Vercel", "Tessah", "Riverton", "Koda"])
-    #expect(result.newReplacements.map(\.from) == ["vassal", "koda"])
-    #expect(result.newReplacements.map(\.to) == ["Vercel", "Koda"])
+    #expect(result.newTerms == ["Vercel", "Tessah", "Riverton", "Kora"])
+    #expect(result.newReplacements.map(\.from) == ["vassal", "kora"])
+    #expect(result.newReplacements.map(\.to) == ["Vercel", "Kora"])
     #expect(result.alreadyHave == ["Supabase"])
     #expect(result.tooLong.count == 1)
     #expect(result.overLimit.isEmpty)
@@ -162,10 +162,10 @@ private func compare(_ before: String, _ pasted: String, _ now: String,
 @Test func savingAnEditKeepsWordsAddedMeanwhile() {
     let builtIn = Vocabulary(terms: Vocabulary.seed)
     let shown = "Vercel\nTessah"
-    // While the user edits (deleting Tessah, adding Koda), a learned word arrives.
+    // While the user edits (deleting Tessah, adding Kora), a learned word arrives.
     let saved = (terms: ["Vercel", "Tessah", "Riverton"], replacements: ["vassal": "Vercel"])
-    let updated = DictionaryImport.applyEdit(from: shown, to: "Vercel\nKoda", builtIn: builtIn, saved: saved)
-    #expect(updated?.terms == ["Vercel", "Riverton", "Koda"])
+    let updated = DictionaryImport.applyEdit(from: shown, to: "Vercel\nKora", builtIn: builtIn, saved: saved)
+    #expect(updated?.terms == ["Vercel", "Riverton", "Kora"])
     #expect(updated?.replacements == ["vassal": "Vercel"])
     // Removing a pair line removes the replacement.
     let pairs = DictionaryImport.applyEdit(from: "vassal → Vercel", to: "", builtIn: builtIn,
@@ -275,7 +275,7 @@ private func compare(_ before: String, _ pasted: String, _ now: String,
     #expect(compare("the cat sat", "the cat sat", "the dog sat") == .rewritten)
 }
 @Test func onlyRealLookingWordsAreAdoptedAutomatically() {
-    for good in ["Koa", "KodaTalks", "MyKoala", "T3 Code", "CleanOS", "OpenRouter", "NASA"] { #expect(CorrectionLearner.isSafeToAdopt(good), "\(good)") }
+    for good in ["Koa", "KoraTalks", "MyKoala", "T3 Code", "FreeBSD", "OpenRouter", "NASA"] { #expect(CorrectionLearner.isSafeToAdopt(good), "\(good)") }
     for bad in ["ANDimprovements", "onmykoala", "lowercase"] { #expect(!CorrectionLearner.isSafeToAdopt(bad), "\(bad)") }
 }
 @Test func wordsCloseToSavedOnesAreTreatedAsMishearings() {
@@ -291,7 +291,7 @@ private func compare(_ before: String, _ pasted: String, _ now: String,
     #expect(CorrectionLearner.isKeyboardSlip(heard: "This", correct: "Thsi", isCommonWord: common))
     #expect(CorrectionLearner.isKeyboardSlip(heard: "Okay", correct: "Okayy", isCommonWord: common))
     #expect(CorrectionLearner.isKeyboardSlip(heard: "on my koala", correct: "Onmykoala", isCommonWord: common))
-    #expect(!CorrectionLearner.isKeyboardSlip(heard: "Cody", correct: "Koda", isCommonWord: common))
+    #expect(!CorrectionLearner.isKeyboardSlip(heard: "Cory", correct: "Kora", isCommonWord: common))
     #expect(!CorrectionLearner.isKeyboardSlip(heard: "Versel", correct: "Vercel", isCommonWord: common))
     #expect(!CorrectionLearner.isKeyboardSlip(heard: "open router", correct: "OpenRouter", isCommonWord: common))
     #expect(!CorrectionLearner.isKeyboardSlip(heard: "Fala", correct: "Falah", isCommonWord: common))
