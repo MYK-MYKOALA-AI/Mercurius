@@ -27,7 +27,7 @@ These are implemented features, not a claim of compatibility with every editor o
 | On-device speech, cloud cleanup off | No audio or transcript; the public model-price catalogue can still be fetched | No speech/cleanup API charge |
 | On-device speech with cloud cleanup | Transcript, app context and dictionary hints go to OpenRouter | Your selected cleanup model |
 | OpenRouter speech | Audio goes to OpenRouter and the selected provider. Grok also receives dictionary hints. Gemini one-step receives dictionary hints and up to 25 replacement pairs, even with cleanup off. Separate cleanup sends the transcript, app name and dictionary to OpenRouter | Your transcription and optional cleanup models |
-| ElevenLabs Scribe | Audio and dictionary keyterms go to ElevenLabs; optional cleanup goes to OpenRouter | Your ElevenLabs credits/billing plus optional cleanup |
+| ElevenLabs Scribe (v3 by default, v2 selectable) | Audio and dictionary keyterms go to ElevenLabs; optional cleanup goes to OpenRouter | Your ElevenLabs credits/billing plus optional cleanup |
 
 Bring-your-own-key does not mean cloud processing happens locally. Provider retention and free-model training policies apply. The app requests denied data collection for normal OpenRouter routes; free catalogue routes can require different terms. Read the in-app labels before selecting one.
 

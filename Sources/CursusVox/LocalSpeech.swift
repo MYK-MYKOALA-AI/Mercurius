@@ -25,6 +25,8 @@ enum RecognitionPlan {
     // selected engine failed over, why.
     private(set) var lastSpeechMillis: Int?
     private(set) var lastFallbackReason: String?
+    // Why the cloud engine failed last, shown with a failed dictation; never response text.
+    private var lastCloudFailure: String?
     private(set) var lastSpeechCost: Double?
     private(set) var lastSpeechModel: String?   // the OpenRouter model that transcribed it
     // The user's dictionary terms, read per recording and sent to Grok as key terms.
@@ -125,7 +127,9 @@ enum RecognitionPlan {
     // Transcribes a saved recording again with the cloud engine (Grok or one-step).
     func retry(_ item: AudioOutbox.Item, oneStep: Bool, clean: Bool? = nil,
                outbox: AudioOutbox = .shared, protocolClasses: [AnyClass]? = nil, recordingID: UUID = UUID(), vocabulary: Vocabulary? = nil) async -> (text: String, costUSD: Double?)? {
-        let config = item.configuration ?? RecoveryConfiguration(engine: elevenLabsDirect ? .elevenLabs : backend == .apple ? .local : oneStep ? .oneStep : .cloud, speechModel: transcriptionModel)
+        retryUsedScribeBackup = false
+        let config = item.configuration ?? RecoveryConfiguration(engine: elevenLabsDirect ? .elevenLabs : backend == .apple ? .local : oneStep ? .oneStep : .cloud,
+            speechModel: elevenLabsDirect ? ScribeSpeech.id(scribeModel) : transcriptionModel)
         guard let wav = outbox.data(item) else { return nil }
         let group = recordingID
         if config.engine == .local {
@@ -140,22 +144,37 @@ enum RecognitionPlan {
             guard let key = elevenLabsKey ?? CloudCredentials.loadElevenLabs() else { return nil }
             let direct = ScribeSpeech(protocolClasses: protocolClasses); direct.usage = usage; direct.usageAdmission = usageAdmission
             direct.usageOperation = .retry; direct.usageRecordingID = group
+            direct.model = ScribeSpeech.model(config.speechModel)
             guard let text = try? await direct.transcribe(wav: wav, key: key, keyterms: vocabulary?.terms ?? []), !text.isEmpty else { return nil }
             return (text, nil)
         }
         guard let key = cloudKey ?? CloudCredentials.load() else { return nil }
         let engine = CloudSpeech(protocolClasses: protocolClasses); engine.oneStep = config.engine == .oneStep
         engine.usage = usage; engine.usageAdmission = usageAdmission; engine.usageOperation = .retry; engine.usageRecordingID = group
-        engine.transcriptionModel = config.speechModel
+        engine.transcriptionModel = config.speechModel; engine.liveModels = cloud.liveModels
         engine.cleans = { config.cleanupEnabled && config.smart }
         let rules = vocabulary.map { Dictionary($0.replacements.map { ($0.from, $0.to) }, uniquingKeysWith: { a,_ in a }) }
         engine.replacements = rules.map { value in { value } } ?? replacements
-        guard let result = try? await engine.transcribe(wav: wav, key: key, keyterms: vocabulary?.terms ?? keyterms()) else { return nil }
-        return (result.text, result.costUSD)
+        do {
+            let result = try await engine.transcribe(wav: wav, key: key, keyterms: vocabulary?.terms ?? keyterms())
+            return (result.text, result.costUSD)
+        } catch {
+            // Same backup as live dictation: Scribe, when its key is saved, after a 404 or 5xx.
+            guard config.engine == .cloud, CloudSpeech.tryNextModel(after: error),
+                  let scribeKey = backupScribeKey ?? CloudCredentials.loadElevenLabs() else { return nil }
+            let direct = ScribeSpeech(protocolClasses: protocolClasses); direct.usage = usage; direct.usageAdmission = usageAdmission
+            direct.usageOperation = .retry; direct.usageRecordingID = group; direct.model = scribeModel
+            guard let text = try? await direct.transcribe(wav: wav, key: scribeKey, keyterms: vocabulary?.terms ?? []), !text.isEmpty else { return nil }
+            retryUsedScribeBackup = true
+            return (text, nil)
+        }
     }
 
     // Direct ElevenLabs Scribe on the user's credits instead of OpenRouter cloud.
     var elevenLabsDirect = false
+    // The Scribe model picked in Settings, persisted by App. A direct recording freezes it
+    // in its recovery configuration; the OpenRouter backup uses the current choice.
+    var scribeModel = ScribeSpeech.defaultModel
     private(set) var elevenLabsKey: String?
     private var scribeCredentialTask: Task<Void, Never>?
     private var scribeCredentialWatchdog: Task<Void, Never>?
@@ -182,14 +201,45 @@ enum RecognitionPlan {
             discover()
         }
     }
+    // An ElevenLabs key saved for direct Scribe also backs up OpenRouter speech. Read once,
+    // off the main actor and without a prompt; nil when none is saved.
+    private var backupScribeKey: String?
+    private var backupScribeRead: Task<Void, Never>?
+    // Re-read on every cloud selection, so a key saved or replaced later is picked up.
+    private func readBackupScribeKey() {
+        backupScribeRead?.cancel(); backupScribeRead = nil
+        guard !stopped, !elevenLabsDirect else { backupScribeKey = nil; return }
+        let read = scribeCredentialRead
+        backupScribeRead = Task { [weak self] in
+            let key = await Task.detached { CloudCredentials.validated(read()) }.value
+            guard let self, !Task.isCancelled, !stopped else { return }
+            backupScribeKey = key; backupScribeRead = nil
+        }
+    }
+    // Set when Scribe backed up OpenRouter: shown in History and the badge like any fallback,
+    // because the audio went to a provider with standard retention. (A switch between
+    // OpenRouter models is recorded as the delivery's speechModel instead.)
+    private var cloudBackupNote: String?
+    private var scribeBackupFailure: String?
+    // The last panel retry went to ElevenLabs Scribe as a backup; App says so in History.
+    private(set) var retryUsedScribeBackup = false
+    // Scribe takes over only after a quick refusal (gone or provider down) and never for one-step,
+    // whose single call already cleans; a key, credit or rate refusal is not a model problem.
+    nonisolated static func scribeBacksUp(_ error: Error, oneStep: Bool, elapsed: TimeInterval) -> Bool {
+        !oneStep && elapsed < 3 && CloudSpeech.tryNextModel(after: error)
+    }
     private var speechCredentialReady: Bool { elevenLabsDirect ? elevenLabsKey != nil : cloudKey != nil }
     private let scribe = ScribeSpeech()
     // Cloud speech as one step (hear and clean in one call) instead of Grok then cleanup.
+    var liveSpeechModels: Set<String>? {
+        get { cloud.liveModels }
+        set { cloud.liveModels = newValue }
+    }
     var oneStep: Bool {
         get { cloud.oneStep }
         set { cloud.oneStep = newValue }
     }
-    var cloudModel: String { elevenLabsDirect ? ScribeSpeech.modelID : cloud.model }
+    var cloudModel: String { elevenLabsDirect ? ScribeSpeech.id(scribeModel) : cloud.model }
     // The picked transcription model, persisted by App; Grok until changed.
     var transcriptionModel: String {
         get { cloud.transcriptionModel }
@@ -204,6 +254,7 @@ enum RecognitionPlan {
         backend = value
         if value == .cloud && elevenLabsDirect { readScribeCredential() }
         else { elevenLabsKey = nil }
+        if value == .cloud { readBackupScribeKey() }
         if value == .apple && !cloudCleanupOnDevice { selectedCloudKey = nil; authorizationPending = false }
         else if value == .apple, selectedCloudKey == nil, credentialTask == nil {
             startCredentialRead(credentialRead, interactive: false)
@@ -497,7 +548,7 @@ enum RecognitionPlan {
                     speechMillis: lastSpeechMillis ?? 0, fallback: lastFallbackReason, cleanup: nil,
                     at: ProcessInfo.processInfo.systemUptime, speechCost: engine == .cloud ? lastSpeechCost : nil,
                     speechModel: engine == .cloud ? lastSpeechModel : nil,
-                    usageRecordingID: cleanupContext.recordingID, speechCredits: engine == .cloud && elevenLabsDirect)
+                    usageRecordingID: cleanupContext.recordingID, speechCredits: engine == .cloud && ScribeSpeech.isDirect(lastSpeechModel))
                 let left = Self.finalizeLimit - Self.deliveryMargin - (ProcessInfo.processInfo.systemUptime - stoppedAt)
                 guard let text = await finishRecognized(facts, context: context, budget: left,
                     isCurrent: { self.valid(generation) }) else { return }
@@ -512,10 +563,11 @@ enum RecognitionPlan {
                     // Keep the audio so it can be retried instead of spoken again.
                     var kept = false
                     if !(error is CancellationError) { kept = retainFailedAudio(batch) }
+                    let reason = lastCloudFailure.map { " (\($0))" } ?? ""
                     let failure = retention == .transient
-                        ? "Transcription failed. Audio was not retained; record the command again."
-                        : AudioOutbox.shared.problem ?? "Transcription failed or exceeded a limit; no final transcript was produced"
-                    fail(generation, kept ? "Transcription failed; the recording is kept for 10 minutes. Retry it from the panel." : failure)
+                        ? "Transcription failed\(reason). Audio was not retained; record the command again."
+                        : AudioOutbox.shared.problem ?? "Transcription failed\(reason) or exceeded a limit; no final transcript was produced"
+                    fail(generation, kept ? "Transcription failed\(reason); the recording is kept for 10 minutes. Retry it from the panel." : failure)
                 }
             }
         }
@@ -537,6 +589,7 @@ enum RecognitionPlan {
         var lastError: Error = CancellationError()
         let cloudReady = speechCredentialReady
         var fallback: String? = selected == .cloud && !cloudReady ? "Speech provider not set up" : nil
+        lastCloudFailure = fallback; cloudBackupNote = nil; scribeBackupFailure = nil
         let began = ProcessInfo.processInfo.systemUptime
         for engine in RecognitionPlan.engines(selected: selected, cloudKey: cloudReady, appleReady: appleReady) {
             guard valid(id) else { throw CancellationError() }
@@ -545,11 +598,14 @@ enum RecognitionPlan {
                                             : try await recognizeAppleOnDemand(batch, id: id)
                 lastEngine = engine
                 lastSpeechMillis = Int((ProcessInfo.processInfo.systemUptime - began) * 1000)
-                lastFallbackReason = fallback
+                lastFallbackReason = fallback ?? cloudBackupNote
                 return text
             } catch {
                 lastError = error
-                if engine == .cloud { fallback = Self.describe(error) }
+                if engine == .cloud {
+                    fallback = Self.describe(error) + (scribeBackupFailure.map { "; ElevenLabs Scribe backup also failed: \($0)" } ?? "")
+                    lastCloudFailure = fallback
+                }
             }
         }
         throw lastError
@@ -591,14 +647,37 @@ enum RecognitionPlan {
         if let config = activeRecoveryConfiguration, config.engine == .cloud { cloud.transcriptionModel = config.speechModel }
         if elevenLabsDirect {
             guard valid(id), let key = elevenLabsKey else { throw CancellationError() }
+            scribe.model = activeRecoveryConfiguration.map { ScribeSpeech.model($0.speechModel) } ?? scribeModel
             let text = try await scribe.transcribe(batch, key: key, keyterms: activeKeyterms)
-            lastSpeechCost = nil; lastSpeechModel = ScribeSpeech.modelID
+            lastSpeechCost = nil; lastSpeechModel = ScribeSpeech.id(scribe.lastModel)
             return text
         }
         guard valid(id), let key = cloudKey else { throw CancellationError() }
-        let result = try await cloud.transcribe(batch, key: key, keyterms: activeKeyterms, oneStep: cleanupContext.oneStep, model: effectiveSpeechModel)
+        let began = ProcessInfo.processInfo.systemUptime
+        let result: CloudSpeech.Result
+        do {
+            result = try await cloud.transcribe(batch, key: key, keyterms: activeKeyterms, oneStep: cleanupContext.oneStep, model: effectiveSpeechModel)
+        } catch {
+            // Every OpenRouter model refused quickly: ElevenLabs Scribe, when its key is saved,
+            // gets the same audio while on-device speech still fits the deadline.
+            guard let scribeKey = backupScribeKey, valid(id), Self.scribeBacksUp(error, oneStep: cleanupContext.oneStep,
+                  elapsed: ProcessInfo.processInfo.systemUptime - began) else { throw error }
+            scribe.timeout = CloudSpeech.requestTimeout - (ProcessInfo.processInfo.systemUptime - began)
+            defer { scribe.timeout = CloudSpeech.requestTimeout }
+            let text: String
+            scribe.model = scribeModel
+            do { text = try await scribe.transcribe(batch, key: scribeKey, keyterms: activeKeyterms) }
+            catch let backup {
+                // The audio already went to ElevenLabs, so say so; OpenRouter's reason stays first.
+                scribeBackupFailure = Self.describe(backup)
+                throw error
+            }
+            lastSpeechCost = nil; lastSpeechModel = ScribeSpeech.id(scribe.lastModel)
+            cloudBackupNote = "\(Self.describe(error)); ElevenLabs Scribe transcribed it (standard retention)"
+            return text
+        }
         lastSpeechCost = result.costUSD
-        lastSpeechModel = cleanupContext.oneStep ? CloudSpeech.oneStepModel : effectiveSpeechModel
+        lastSpeechModel = cleanupContext.oneStep ? CloudSpeech.oneStepModel : result.model ?? effectiveSpeechModel
         return result.text
     }
     // Keep billing facts before deciding whether this result can still be delivered.
@@ -607,7 +686,8 @@ enum RecognitionPlan {
         var facts = recognized
         facts.dictionaryCorrections = context.vocabulary?.appliedCorrections(in: facts.raw) ?? []
         if isCurrent(), !facts.raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let cleanup {
-            facts.cleanup = await cleanup(facts.raw, budget, facts.fallback != nil, context)
+            // Only an on-device fallback skips AI cleanup; a cloud backup (Scribe) still gets it.
+            facts.cleanup = await cleanup(facts.raw, budget, facts.fallback != nil && facts.engine != .cloud, context)
         }
         lastFacts = retention == .recoverable ? facts : nil
         recordedFacts?(facts)
@@ -661,6 +741,7 @@ enum RecognitionPlan {
         selectedCloudKey = nil; elevenLabsKey = nil
         scribeCredentialWatchdog?.cancel(); scribeCredentialWatchdog = nil
         scribeCredentialTask?.cancel()
+        backupScribeRead?.cancel(); backupScribeRead = nil; backupScribeKey = nil
     }
     var permissionsRevoked: Bool {
         microphoneStatus() == .denied || (backend == .apple && speechStatus() == .denied)

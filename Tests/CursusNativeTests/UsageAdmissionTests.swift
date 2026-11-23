@@ -39,5 +39,6 @@ private final class AdmissionTransport: URLProtocol, @unchecked Sendable {
     cloud.usageAdmission = { _ in true }
     do { _ = try await cloud.transcribe(wav: Data([0]), key: "synthetic-fixture-key") }
     catch { #expect(error as? CloudFailure == .status(500)) }
-    #expect(AdmissionTransport.requests == 1)
+    // An admitted 5xx moves on to the two backup models, each admitted separately.
+    #expect(AdmissionTransport.requests == 3)
 }

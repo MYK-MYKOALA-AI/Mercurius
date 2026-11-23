@@ -79,7 +79,7 @@ private final class RedirectDecision: @unchecked Sendable {
 
 @Test func cloudRequestSendsKeyTermsAndRemovesFillersThroughXAIOptions() throws {
     let body = CloudSpeech.requestBody(audioBase64: "AAAA", keyterms: ["CursusVox", "Supabase"])
-    #expect(body["model"] as? String == "x-ai/grok-stt-1.0")
+    #expect(body["model"] as? String == "x-ai/grok-stt-2.0")
     #expect(body["language"] as? String == "en")
     let provider = try #require(body["provider"] as? [String: Any])
     #expect(provider["data_collection"] as? String == "deny")
@@ -199,4 +199,90 @@ private final class ChargedErrorFixture: URLProtocol, @unchecked Sendable {
     do { _ = try await cloud.transcribe(wav: Data(repeating: 0,count: 364),key: "owned-fixture") }
     catch { }
     #expect(events.count == 2); #expect(events.last?.outcome == .failed); #expect(events.last?.charge == 0.025)
+}
+
+// OpenRouter's reply once a model is withdrawn: 404 "No endpoints found" (grok-stt-1.0, 2026-11-18).
+private final class WithdrawnModelFixture: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var models: [String] = []
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        guard let url = request.url else { return }
+        var body = request.httpBody ?? Data()
+        if body.isEmpty, let stream = request.httpBodyStream {
+            stream.open(); defer { stream.close() }
+            var chunk = [UInt8](repeating: 0, count: 4096)
+            while stream.hasBytesAvailable { let n = stream.read(&chunk, maxLength: chunk.count); if n <= 0 { break }; body.append(chunk, count: n) }
+        }
+        let model = ((try? JSONSerialization.jsonObject(with: body)) as? [String: Any])?["model"] as? String ?? "?"
+        Self.models.append(model)
+        let gone = model == "x-ai/grok-stt-1.0"
+        let reply = gone ? #"{"error":{"message":"No endpoints found","code":404}}"# : #"{"text":"hello","usage":{"cost":0.0001}}"#
+        let response = HTTPURLResponse(url: url, statusCode: gone ? 404 : 200, httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Length": "\(reply.utf8.count)"])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(reply.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+@MainActor @Test func withdrawnSpeechModelFallsBackToTheNextLiveModel() async throws {
+    WithdrawnModelFixture.models = []
+    let cloud = CloudSpeech(protocolClasses: [WithdrawnModelFixture.self])
+    cloud.transcriptionModel = "x-ai/grok-stt-1.0"
+    cloud.liveModels = nil  // catalogue not fetched yet: the saved pick is tried and 404s
+    let result = try await cloud.transcribe(wav: Data([0]), key: "synthetic-fixture-key")
+    #expect(result.text == "hello")
+    #expect(result.model == "x-ai/grok-stt-2.0")
+    #expect(WithdrawnModelFixture.models == ["x-ai/grok-stt-1.0", "x-ai/grok-stt-2.0"])
+    // Once the live catalogue drops the saved pick, it is not even tried.
+    cloud.liveModels = ["x-ai/grok-stt-2.0", "openai/whisper-large-v3-turbo"]
+    #expect(cloud.attemptModels(first: "x-ai/grok-stt-1.0") == ["x-ai/grok-stt-2.0", "openai/whisper-large-v3-turbo"])
+    // Dead backups are skipped; key, credit and rate refusals never move to another model.
+    cloud.liveModels = ["openai/whisper-1", "x-ai/grok-stt-2.0", "openai/whisper-large-v3-turbo"]
+    #expect(cloud.attemptModels(first: "openai/whisper-1") == ["openai/whisper-1", "x-ai/grok-stt-2.0", "openai/whisper-large-v3-turbo"])
+    // A catalogue that lists neither the pick nor any backup still tries the pick.
+    cloud.liveModels = ["other/model"]
+    #expect(cloud.attemptModels(first: "x-ai/grok-stt-1.0") == ["x-ai/grok-stt-1.0"])
+    #expect(CloudSpeech.tryNextModel(after: CloudFailure.status(503)))
+    #expect(!CloudSpeech.tryNextModel(after: CloudFailure.status(401)))
+    #expect(!CloudSpeech.tryNextModel(after: CloudFailure.status(429)))
+}
+
+@Test func elevenLabsScribeBacksUpOnlyAfterAQuickModelRefusal() {
+    #expect(LocalSpeech.scribeBacksUp(CloudFailure.status(404), oneStep: false, elapsed: 1))
+    #expect(LocalSpeech.scribeBacksUp(CloudFailure.status(502), oneStep: false, elapsed: 2.9))
+    #expect(!LocalSpeech.scribeBacksUp(CloudFailure.status(404), oneStep: true, elapsed: 1))
+    #expect(!LocalSpeech.scribeBacksUp(CloudFailure.status(404), oneStep: false, elapsed: 3.5))
+    #expect(!LocalSpeech.scribeBacksUp(CloudFailure.status(401), oneStep: false, elapsed: 1))
+    #expect(!LocalSpeech.scribeBacksUp(CloudFailure.accountingUnavailable, oneStep: false, elapsed: 1))
+}
+
+// A provider that answers 503 slowly: the chain must stay inside one requestTimeout.
+private final class SlowOutageFixture: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var count = 0
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        Self.count += 1
+        let client = client, url = request.url!
+        DispatchQueue.global().asyncAfter(deadline: .now() + 4.1) { [self] in
+            client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: 503, httpVersion: "HTTP/1.1",
+                headerFields: nil)!, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocolDidFinishLoading(self)
+        }
+    }
+    override func stopLoading() {}
+}
+
+@MainActor @Test func slowOutagesShareOneRequestDeadline() async {
+    SlowOutageFixture.count = 0
+    let cloud = CloudSpeech(protocolClasses: [SlowOutageFixture.self])
+    let began = ProcessInfo.processInfo.systemUptime
+    do { _ = try await cloud.transcribe(wav: Data([0]), key: "synthetic-fixture-key"); Issue.record("an outage must fail") }
+    catch { #expect(error as? CloudFailure == .status(503)) }
+    // 4.1 s + 4.1 s, then under 2 s is left: no third attempt, and the chain ends before 10 s.
+    #expect(SlowOutageFixture.count == 2)
+    #expect(ProcessInfo.processInfo.systemUptime - began < CloudSpeech.requestTimeout)
 }
