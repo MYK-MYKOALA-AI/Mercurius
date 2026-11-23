@@ -170,3 +170,16 @@ private final class ScribeModelFixture: URLProtocol, @unchecked Sendable {
     #expect(ScribeModelFixture.models == ["scribe_v2"])
     speech.select(.apple)
 }
+
+@Test func anOpenRouterPresetUnderGlobalScribeKeepsTheSavedOpenRouterModel() {
+    let global = RecoveryConfiguration(engine: .elevenLabs, speechModel: ScribeSpeech.id("scribe_v3"))
+    let inherit = AppPreset.resolve(bundleID: "com.example.notes", presets: [AppPreset(bundleID: "com.example.notes", engine: .cloud)],
+                                    global: global, strictApps: [], literalApps: []).configuration
+    #expect(Application.recordingSpeechModel(inherit, scribe: "scribe_v3", cloud: "openai/whisper-large-v3-turbo") == "openai/whisper-large-v3-turbo")
+    let named = AppPreset.resolve(bundleID: "com.example.notes", presets: [AppPreset(bundleID: "com.example.notes", engine: .cloud, speechModel: "x-ai/grok-stt-2.0")],
+                                  global: global, strictApps: [], literalApps: []).configuration
+    #expect(Application.recordingSpeechModel(named, scribe: "scribe_v3", cloud: "openai/whisper-large-v3-turbo") == "x-ai/grok-stt-2.0")
+    #expect(Application.recordingSpeechModel(global, scribe: "scribe_v2", cloud: CloudSpeech.model) == "elevenlabs-direct/scribe_v2")
+    var local = global; local.engine = .local
+    #expect(Application.recordingSpeechModel(local, scribe: "scribe_v3", cloud: CloudSpeech.model) == "apple-speech")
+}

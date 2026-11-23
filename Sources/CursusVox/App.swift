@@ -1079,12 +1079,8 @@ import ServiceManagement
                         let resolved = AppPreset.resolve(bundleID: context.bundleID,presets: appPresets.value,global: global,strictApps: Set(strictBundleIDs),literalApps: AICleanup.literalApps)
                             .falling(backTo: global, speechAvailable: { home.speechModelIDs.contains($0) }, cleanupAvailable: { id in home.cleanupModels.contains { $0.id == id } })
                         var config = resolved.configuration
-                        switch config.engine {
-                        case .local: config.speechModel = "apple-speech"
-                        case .oneStep: config.speechModel = CloudSpeech.oneStepModel
-                        case .elevenLabs: config.speechModel = ScribeSpeech.id(speech.scribeModel)
-                        case .cloud: break
-                        }
+                        config.speechModel = Self.recordingSpeechModel(config, scribe: speech.scribeModel,
+                            cloud: defaults.string(forKey: "speechModel") ?? CloudSpeech.model)
                         speech.elevenLabsDirect = config.engine == .elevenLabs
                         speech.oneStep = config.engine == .oneStep
                         speech.transcriptionModel = config.speechModel
@@ -1310,6 +1306,16 @@ import ServiceManagement
     nonisolated static func liveSpeechModels(_ models: [CatalogModel]) -> Set<String>? {
         let ids = Set(models.filter(\.transcription).map(\.id))
         return ids.isEmpty ? nil : ids
+    }
+    // With ElevenLabs as the global engine the global model is Scribe's, so a preset that picks
+    // OpenRouter and inherits the model gets the saved OpenRouter model instead.
+    nonisolated static func recordingSpeechModel(_ config: RecoveryConfiguration, scribe: String, cloud: String) -> String {
+        switch config.engine {
+        case .local: "apple-speech"
+        case .oneStep: CloudSpeech.oneStepModel
+        case .elevenLabs: ScribeSpeech.id(scribe)
+        case .cloud: ScribeSpeech.isDirect(config.speechModel) ? cloud : config.speechModel
+        }
     }
     nonisolated static func engineName(_ model: String) -> String {
         if model.hasPrefix("x-ai/grok-stt") { return "Grok" }
