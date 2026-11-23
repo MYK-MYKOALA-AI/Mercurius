@@ -43,6 +43,10 @@ struct HistoryEntry: Equatable {
     let shortcut = NSPopUpButton(frame: .zero, pullsDown: false)
     let cleanupModel = NSPopUpButton(frame: .zero, pullsDown: false)
     let speechModel = NSPopUpButton(frame: .zero, pullsDown: false)
+    // Shown in place of the speech model row while ElevenLabs Scribe is the engine.
+    let scribeModel = NSPopUpButton(frame: .zero, pullsDown: false)
+    private var speechModelRow: NSView?
+    private var scribeModelRow: NSView?
     // Cleanup models the picker offers (measured catalog + live catalogue extras) and
     // transcription model ids for the speech picker; App replaces both when the
     // catalogue arrives. Defaults keep the pickers working before any fetch.
@@ -705,17 +709,22 @@ struct HistoryEntry: Equatable {
         cleanupModel.setAccessibilityLabel("AI cleanup model")
         if speechModel.numberOfItems == 0 { rebuildSpeechPicker() }
         speechModel.setAccessibilityLabel("Speech model")
+        if scribeModel.numberOfItems == 0 { rebuildScribePicker() }
+        scribeModel.setAccessibilityLabel("ElevenLabs Scribe model")
         if cleanupStyle.numberOfItems == 0 { cleanupStyle.addItems(withTitles: ["Smart", "Strict"]) }
         cleanupStyle.setAccessibilityLabel("Cleanup style")
-        for popup in [engine, shortcut, cleanupModel, cleanupStyle, speechModel] { popup.controlSize = .small; popup.font = .systemFont(ofSize: 12) }
+        for popup in [engine, shortcut, cleanupModel, cleanupStyle, speechModel, scribeModel] { popup.controlSize = .small; popup.font = .systemFont(ofSize: 12) }
         for note in [engineNote, modelNote] { note.font = .systemFont(ofSize: 12); note.textColor = .secondaryLabelColor
             note.preferredMaxLayoutWidth = Self.contentWidth - 24 }
+        let speechRow = pickerRow("Speech model", speechModel), scribeRow = pickerRow("Speech model", scribeModel)
+        speechModelRow = speechRow; scribeModelRow = scribeRow
         refreshPrices()
 
         let voice = rows([
             pickerRow("Speech engine", engine, engineNote),
             rowDivider(inset: 0),
-            pickerRow("Speech model", speechModel),
+            speechRow,
+            scribeRow,
             ActionButton(title: "Provider keys…") { [weak self] in self?.manageCredentials?() },
             ActionButton(title: "Speech languages…") { [weak self] in self?.chooseLanguages?() },
             rowDivider(inset: 0),
@@ -876,6 +885,16 @@ struct HistoryEntry: Equatable {
             speechModel.selectItem(at: index)
         }
     }
+    func rebuildScribePicker() {
+        let selected = scribeModel.selectedItem?.representedObject as? String ?? ScribeSpeech.defaultModel
+        scribeModel.removeAllItems()
+        for model in ScribeSpeech.catalog {
+            scribeModel.addItem(withTitle: ScribeSpeech.displayName(model) + (model == ScribeSpeech.defaultModel ? " · newest" : "") + " · your credits")
+            scribeModel.lastItem?.representedObject = model
+            scribeModel.lastItem?.toolTip = model
+        }
+        if let index = scribeModel.itemArray.firstIndex(where: { $0.representedObject as? String == selected }) { scribeModel.selectItem(at: index) }
+    }
     // App calls this when the live catalogue lands: new models become selectable
     // without an app update, and the prices refresh to match.
     func updateCatalogue(cleanup: [AICleanup.Model], speech: [String]) {
@@ -929,15 +948,18 @@ struct HistoryEntry: Equatable {
             let rate = price?(id).flatMap(ModelCosts.label) ?? (id.hasSuffix(":free") ? "free" : "rate unavailable")
             item.title = ModelCosts.shortName(id) + " · " + rate
         }
-        // The speech model only drives the Grok (transcription) engine.
+        // The speech model only drives the Grok (transcription) engine; Scribe has its own picker.
         speechModel.isEnabled = engine.indexOfSelectedItem == 0
         let selected = max(0, engine.indexOfSelectedItem)
+        speechModelRow?.isHidden = selected == 4
+        scribeModelRow?.isHidden = selected != 4
+        let scribeName = ScribeSpeech.displayName(scribeModel.selectedItem?.representedObject as? String ?? ScribeSpeech.defaultModel)
         engineNote.stringValue = [
             "\(ModelCosts.shortName(CloudSpeech.model)) transcribes; the cleanup model below tidies the text.",
             "\(ModelCosts.shortName(CloudSpeech.oneStepModel)) transcribes and cleans in one call.",
             "Audio never leaves this Mac, and nothing is cleaned online.",
             "Audio stays on this Mac. Online text cleanup is billed separately.",
-            "Audio goes directly to ElevenLabs and uses your credits. Standard provider retention applies. Dictionary keyterms are sent to ElevenLabs to help recognition. Optional text cleanup uses OpenRouter."
+            "Audio goes directly to ElevenLabs \(scribeName) and uses your credits. Standard provider retention applies. Dictionary keyterms are sent to ElevenLabs to help recognition. Optional text cleanup uses OpenRouter."
         ][min(selected, 4)]
         // Only Grok takes dictionary terms through this model selector.
         if selected == 0, let id = speechModel.selectedItem?.representedObject as? String, !id.hasPrefix("x-ai/") {

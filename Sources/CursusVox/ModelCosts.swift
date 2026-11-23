@@ -104,7 +104,7 @@ enum ModelCosts {
     // Today's models that answered without a usage.cost, so their total is a floor, not a fact.
     static func addUnknown(_ spends: [Spend], to unknown: [String], day: String?, today: String) -> [String] {
         var models = Set(day == today ? unknown : [])
-        for spend in spends where spend.usd == nil && spend.model != ScribeSpeech.modelID { models.insert(spend.model) }
+        for spend in spends where spend.usd == nil && !ScribeSpeech.isDirect(spend.model) { models.insert(spend.model) }
         return models.sorted()
     }
 
@@ -115,7 +115,7 @@ enum ModelCosts {
         guard !used.isEmpty else { return nil }
         return used.map { entry in
             let name = shortName(entry.key)
-            if entry.key == ScribeSpeech.modelID { return "ElevenLabs credits" }
+            if ScribeSpeech.isDirect(entry.key) { return "ElevenLabs credits" }
             guard unknown.contains(entry.key) else { return "\(name) \(money(entry.value))" }
             return entry.value > 0 ? "\(name) \(money(entry.value)) + unknown" : "\(name) cost unknown"
         }.joined(separator: " · ")

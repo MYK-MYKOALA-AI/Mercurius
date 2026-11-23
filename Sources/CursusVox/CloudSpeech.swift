@@ -15,7 +15,7 @@ final class NoCredentialRedirects: NSObject, URLSessionTaskDelegate {
 @MainActor final class CloudSpeech {
     // Leaves room for an on-device retry inside the 15-second finalization deadline.
     nonisolated static let requestTimeout: TimeInterval = 10
-    struct Result { let text: String; let costUSD: Double? }
+    struct Result { let text: String; let costUSD: Double?; var model: String? = nil }
     var usage: ((UsageEvent) -> Void)?
     var usageAdmission: ((UsageEvent) -> Bool)?
     var usageRecordingID: UUID?
@@ -26,13 +26,30 @@ final class NoCredentialRedirects: NSObject, URLSessionTaskDelegate {
     // credential handling and ephemeral configuration remain fixed.
     init(protocolClasses: [AnyClass]? = nil) { self.protocolClasses = protocolClasses }
     func cancel() { activeSession?.invalidateAndCancel(); activeSession = nil }
-    nonisolated static let model = "x-ai/grok-stt-1.0"
+    nonisolated static let model = "x-ai/grok-stt-2.0"
     // The transcription model the user picked; Grok until they pick another.
     var transcriptionModel = CloudSpeech.model
     // Transcription models offered before the live catalogue arrives, cheapest last;
     // the picker then adds every transcription model OpenRouter lists.
-    nonisolated static let speechCatalog = ["x-ai/grok-stt-1.0", "openai/whisper-large-v3-turbo",
+    nonisolated static let speechCatalog = ["x-ai/grok-stt-2.0", "openai/whisper-large-v3-turbo",
         "mistralai/voxtral-mini-3b-2507", "qwen/qwen3-asr-0.6b", "nvidia/parakeet-tdt-0.6b-v3"]
+    // Tried after the picked model when it is gone (HTTP 404, as grok-stt-1.0 was on
+    // 2026-11-18) or its provider fails (5xx), so one dead model cannot stop dictation.
+    nonisolated static let backupModels = ["x-ai/grok-stt-2.0", "openai/whisper-large-v3-turbo", "openai/gpt-4o-mini-transcribe"]
+    // Transcription ids in the live catalogue; nil until it arrives, then dead backups are skipped.
+    var liveModels: Set<String>?
+    // The picked model first, then live backups. All attempts share one requestTimeout,
+    // so the chain never takes longer than a single request did.
+    func attemptModels(first: String) -> [String] {
+        let backups = Self.backupModels.filter { $0 != first && liveModels?.contains($0) ?? true }
+        // A saved pick the live catalogue no longer lists (grok-stt-1.0) is skipped, not paid a 404 every time.
+        let picked = liveModels.map { $0.contains(first) } ?? true || backups.isEmpty ? [first] : []
+        return Array((picked + backups).prefix(3))
+    }
+    nonisolated static func tryNextModel(after error: Error) -> Bool {
+        guard case let CloudFailure.status(code) = error else { return false }
+        return code == 404 || (500...599).contains(code)
+    }
     nonisolated static func pickerSpeechModels(from catalogue: [CatalogModel]) -> [String] {
         let extra = catalogue.filter(\.transcription).map(\.id).filter { !speechCatalog.contains($0) }
         return speechCatalog + extra.sorted()
@@ -102,11 +119,29 @@ final class NoCredentialRedirects: NSObject, URLSessionTaskDelegate {
         defer { withExtendedLifetime(wavLease) {}; withExtendedLifetime(batch) {} }
         return try await transcribe(wav: wav, key: key, keyterms: keyterms, oneStep: oneStep, model: model)
     }
-    // Also used to retry a saved recording.
+    // Also used to retry a saved recording. One-step has a single model; transcription
+    // moves to the next model only on a quick refusal, leaving time for on-device speech.
     func transcribe(wav: Data, key: String, keyterms: [String] = [], oneStep: Bool? = nil, model: String? = nil) async throws -> Result {
-        try Task.checkCancellation()
         let oneStep = oneStep ?? self.oneStep
-        let transcriptionModel = model ?? self.transcriptionModel
+        let first = model ?? transcriptionModel
+        let models = oneStep ? [first] : attemptModels(first: first)
+        let began = ProcessInfo.processInfo.systemUptime
+        for (index, candidate) in models.enumerated() {
+            let left = Self.requestTimeout - (ProcessInfo.processInfo.systemUptime - began)
+            do {
+                var result = try await transcribeOnce(wav: wav, key: key, keyterms: keyterms, oneStep: oneStep,
+                                                      model: candidate, timeout: index == 0 ? Self.requestTimeout : max(left, 1))
+                result.model = candidate
+                return result
+            } catch let error where index + 1 < models.count && Self.tryNextModel(after: error)
+                            && Self.requestTimeout - (ProcessInfo.processInfo.systemUptime - began) >= 2 && !Task.isCancelled {
+                continue
+            }
+        }
+        throw CancellationError()  // unreachable: the last attempt returns or throws
+    }
+    private func transcribeOnce(wav: Data, key: String, keyterms: [String], oneStep: Bool, model transcriptionModel: String, timeout: TimeInterval) async throws -> Result {
+        try Task.checkCancellation()
         let body = try JSONSerialization.data(withJSONObject: oneStep
             ? Self.oneStepBody(audioBase64: wav.base64EncodedString(), keyterms: keyterms,
                                clean: cleans(), replacements: replacements())
@@ -120,8 +155,8 @@ final class NoCredentialRedirects: NSObject, URLSessionTaskDelegate {
         configuration.httpCookieStorage = nil
         configuration.urlCredentialStorage = nil
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-        configuration.timeoutIntervalForRequest = Self.requestTimeout
-        configuration.timeoutIntervalForResource = Self.requestTimeout
+        configuration.timeoutIntervalForRequest = timeout
+        configuration.timeoutIntervalForResource = timeout
         let session = URLSession(configuration: configuration)
         activeSession = session
         defer { session.invalidateAndCancel(); if activeSession === session { activeSession = nil } }

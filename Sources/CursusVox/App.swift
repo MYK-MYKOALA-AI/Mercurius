@@ -539,6 +539,7 @@ import ServiceManagement
         keys.controlOptionChords = policy.binding == .controlOption
         // Grok is the default engine and the choice persists.
         speech.elevenLabsDirect = defaults.bool(forKey: "elevenLabsDirect")
+        speech.scribeModel = ScribeSpeech.model(defaults.string(forKey: "scribeModel"))
         speech.cloudCleanupOnDevice = defaults.bool(forKey: "onDeviceCleanup")
         speech.select(SpeechBackend(rawValue: defaults.string(forKey: "speechBackend") ?? "") ?? .cloud)
         speech.oneStep = !speech.elevenLabsDirect && defaults.bool(forKey: "oneStepSpeech")
@@ -785,10 +786,15 @@ import ServiceManagement
         // transcription model in the live catalogue when it arrives.
         speech.transcriptionModel = defaults.string(forKey: "speechModel") ?? CloudSpeech.model
         home.speechModelIDs = CloudSpeech.pickerSpeechModels(from: prices.models)
+        speech.liveSpeechModels = Self.liveSpeechModels(prices.models)
         if home.speechModel.numberOfItems == 0 { home.rebuildSpeechPicker() }
         if let index = home.speechModel.itemArray.firstIndex(where: {
             $0.representedObject as? String == speech.transcriptionModel }) { home.speechModel.selectItem(at: index) }
         home.speechModel.target = self; home.speechModel.action = #selector(changeSpeechModel)
+        if home.scribeModel.numberOfItems == 0 { home.rebuildScribePicker() }
+        if let index = home.scribeModel.itemArray.firstIndex(where: {
+            $0.representedObject as? String == speech.scribeModel }) { home.scribeModel.selectItem(at: index) }
+        home.scribeModel.target = self; home.scribeModel.action = #selector(changeScribeModel)
         home.saveCustomCleanupModel = { [weak self] id in
             guard let self else { return }
             defaults.set(id, forKey: "customCleanupModel")
@@ -826,6 +832,7 @@ import ServiceManagement
             guard let self else { return }
             home.updateCatalogue(cleanup: AICleanup.pickerModels(from: prices.models),
                                  speech: CloudSpeech.pickerSpeechModels(from: prices.models))
+            speech.liveSpeechModels = Self.liveSpeechModels(prices.models)
             // A saved model that only exists in the live catalogue now resolves.
             aiCleanup.order = AICleanup.order(choosing: defaults.string(forKey: "cleanupModel"), from: home.cleanupModels)
             if let index = home.cleanupModel.itemArray.firstIndex(where: {
@@ -1072,12 +1079,8 @@ import ServiceManagement
                         let resolved = AppPreset.resolve(bundleID: context.bundleID,presets: appPresets.value,global: global,strictApps: Set(strictBundleIDs),literalApps: AICleanup.literalApps)
                             .falling(backTo: global, speechAvailable: { home.speechModelIDs.contains($0) }, cleanupAvailable: { id in home.cleanupModels.contains { $0.id == id } })
                         var config = resolved.configuration
-                        switch config.engine {
-                        case .local: config.speechModel = "apple-speech"
-                        case .oneStep: config.speechModel = CloudSpeech.oneStepModel
-                        case .elevenLabs: config.speechModel = ScribeSpeech.modelID
-                        case .cloud: break
-                        }
+                        config.speechModel = Self.recordingSpeechModel(config, scribe: speech.scribeModel,
+                            cloud: defaults.string(forKey: "speechModel") ?? CloudSpeech.model)
                         speech.elevenLabsDirect = config.engine == .elevenLabs
                         speech.oneStep = config.engine == .oneStep
                         speech.transcriptionModel = config.speechModel
@@ -1235,7 +1238,7 @@ import ServiceManagement
         if let active = PillDisplay.active(policy.state) {
             pill.engine = speech.backend == .apple ? (speech.cloudCleanupOnDevice && defaults.bool(forKey: "aiCleanup") && !cleanupKeyLocked ? "On-device + cleanup" : "On-device")
                 : grokLocked ? "On-device"
-                : speech.oneStep ? "Gemini one-step" : Self.engineName(speech.elevenLabsDirect ? ScribeSpeech.modelID : speech.effectiveSpeechModel)
+                : speech.oneStep ? "Gemini one-step" : Self.engineName(speech.elevenLabsDirect ? ScribeSpeech.id(speech.scribeModel) : speech.effectiveSpeechModel)
                     + (defaults.bool(forKey: "aiCleanup") ? " + cleanup" : "")
             // Nothing on screen while a password field has secure input.
             if currentContext().secure { pill.hide() } else {
@@ -1299,17 +1302,29 @@ import ServiceManagement
     }
 
     // "Grok · 2.1 s · cleaned 0.4 s" for History; the charges go on their own line (costLine).
-    nonisolated static func engineName(_ model: String) -> String {
-        switch model {
-        case CloudSpeech.model: "Grok"
-        case CloudSpeech.oneStepModel: "Gemini one-step"
-        case ScribeSpeech.modelID: "ElevenLabs Scribe"
-        default: ModelCosts.shortName(model)
+    // Transcription ids the catalogue lists; nil while it is empty so no backup is ruled out.
+    nonisolated static func liveSpeechModels(_ models: [CatalogModel]) -> Set<String>? {
+        let ids = Set(models.filter(\.transcription).map(\.id))
+        return ids.isEmpty ? nil : ids
+    }
+    // With ElevenLabs as the global engine the global model is Scribe's, so a preset that picks
+    // OpenRouter and inherits the model gets the saved OpenRouter model instead.
+    nonisolated static func recordingSpeechModel(_ config: RecoveryConfiguration, scribe: String, cloud: String) -> String {
+        switch config.engine {
+        case .local: "apple-speech"
+        case .oneStep: CloudSpeech.oneStepModel
+        case .elevenLabs: ScribeSpeech.id(scribe)
+        case .cloud: ScribeSpeech.isDirect(config.speechModel) ? cloud : config.speechModel
         }
+    }
+    nonisolated static func engineName(_ model: String) -> String {
+        if model.hasPrefix("x-ai/grok-stt") { return "Grok" }
+        if ScribeSpeech.isDirect(model) { return "ElevenLabs " + ScribeSpeech.displayName(model) }
+        return model == CloudSpeech.oneStepModel ? "Gemini one-step" : ModelCosts.shortName(model)
     }
     nonisolated static func badge(_ facts: LocalSpeech.Facts, cloud: String = "Grok") -> String {
         let recordedModel = facts.speechModel.map(Self.engineName) ?? cloud
-        var parts = [facts.engine == .cloud ? (facts.speechCredits ? "ElevenLabs Scribe" : recordedModel) : "On-device",
+        var parts = [facts.engine == .cloud ? (facts.speechCredits && !ScribeSpeech.isDirect(facts.speechModel) ? "ElevenLabs Scribe" : recordedModel) : "On-device",
                      String(format: "%.1f s", Double(facts.speechMillis) / 1000)]
         if let fallback = facts.fallback { parts.append(fallback) }
         if let cleanup = facts.cleanup, cleanup.model != nil {
@@ -1319,7 +1334,7 @@ import ServiceManagement
     }
     // "grok-stt-1.0 $0.0011 · gpt-oss-120b $0.00006": every model that ran and what it cost.
     nonisolated static func costLine(_ facts: LocalSpeech.Facts) -> String {
-        let charges = spends(facts).filter { !facts.speechCredits || $0.model != ScribeSpeech.modelID }
+        let charges = spends(facts).filter { !facts.speechCredits || !ScribeSpeech.isDirect($0.model) }
         let dollars = ModelCosts.describe(charges)
         if facts.speechCredits { return "ElevenLabs credits" + (dollars.map { " · " + $0 } ?? "") }
         return dollars ?? "free, on this Mac"
@@ -1773,8 +1788,9 @@ import ServiceManagement
     // Retry processes text normally; delivery requires another explicit action. One retry at a time.
     private var globalRecordingConfiguration: RecoveryConfiguration {
         let local = defaults.string(forKey: "speechBackend") == "apple"
-        return RecoveryConfiguration(engine: local ? .local : defaults.bool(forKey: "elevenLabsDirect") ? .elevenLabs : defaults.bool(forKey: "oneStepSpeech") ? .oneStep : .cloud,
-            speechModel: defaults.string(forKey: "speechModel") ?? CloudSpeech.model,
+        let scribe = !local && defaults.bool(forKey: "elevenLabsDirect")
+        return RecoveryConfiguration(engine: local ? .local : scribe ? .elevenLabs : defaults.bool(forKey: "oneStepSpeech") ? .oneStep : .cloud,
+            speechModel: scribe ? ScribeSpeech.id(ScribeSpeech.model(defaults.string(forKey: "scribeModel"))) : defaults.string(forKey: "speechModel") ?? CloudSpeech.model,
             cleanupModel: defaults.string(forKey: "cleanupModel") ?? AICleanup.catalog[0].id,
             cleanupEnabled: defaults.bool(forKey: "aiCleanup") && (!local || defaults.bool(forKey: "onDeviceCleanup")),
             smart: defaults.string(forKey: "cleanupStyle") != "strict")
@@ -1820,7 +1836,7 @@ import ServiceManagement
             let healthToken = healthChecks.begin(.transcription)
             healthChecks.complete(.transcription, token: healthToken, status: .ready,
                 detail: "A recent explicit retry produced text. This does not test the current selection or confirm delivery.")
-            let recoveredEntry = HistoryEntry(text: text, at: at, raw: text == heard ? nil : heard, detail: "Recovered · choose Copy or Paste",
+            let recoveredEntry = HistoryEntry(text: text, at: at, raw: text == heard ? nil : heard, detail: speech.retryUsedScribeBackup ? "Recovered by ElevenLabs Scribe (standard retention) · choose Copy or Paste" : "Recovered · choose Copy or Paste",
                 usageRecordingID: group, costs: usageStore.costLine(recordingID: group), corrections: vocab.appliedCorrections(in: heard),
                 smart: config.smart)
             history.append(recoveredEntry)
@@ -2118,6 +2134,12 @@ import ServiceManagement
         defaults.set(id, forKey: "cleanupModel")
         aiCleanup.order = AICleanup.order(choosing: id, from: home.cleanupModels)
         home.refreshPrices()
+    }
+    @objc private func changeScribeModel() {
+        let model = ScribeSpeech.model(home.scribeModel.selectedItem?.representedObject as? String)
+        defaults.set(model, forKey: "scribeModel")
+        speech.scribeModel = model
+        home.refreshPrices(); refresh()
     }
     @objc private func changeSpeechModel() {
         let id = home.speechModel.selectedItem?.representedObject as? String ?? CloudSpeech.model
