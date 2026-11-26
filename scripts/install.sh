@@ -83,11 +83,20 @@ fi
 TASK_BUILT=$(sh scripts/build-app.sh)
 TASK_APP=$(printf '%s\n' "$TASK_BUILT" | tail -n 1)
 [ -d "$TASK_APP" ] || { say 'The build did not produce an app.'; exit 1; }
+# The build folder is deleted below, so accept only dist/Mercurius.<random>/Mercurius.app in this checkout.
+TASK_OUT=$(dirname -- "$TASK_APP")
+TASK_OUT_NAME=${TASK_OUT#"$TASK_ROOT/dist/"}
+case "$TASK_OUT" in "$TASK_ROOT/dist/Mercurius."?*) ;; *) TASK_OUT_NAME=/ ;; esac
+case "$TASK_OUT_NAME" in */*|*..*) say "Unexpected build output: $TASK_APP"; exit 1 ;; esac
+[ "$(basename -- "$TASK_APP")" = Mercurius.app ] && [ ! -L "$TASK_OUT" ] && [ ! -L "$TASK_APP" ] || {
+    say "Unexpected build output: $TASK_APP"
+    exit 1
+}
 # Stage next to the destination and verify there, so a failed copy never touches the installed app.
 TASK_STAGE=$(mktemp -d "$HOME/Applications/.Mercurius-install.XXXXXXXX")
 ditto "$TASK_APP" "$TASK_STAGE/Mercurius.app"
 codesign --verify --strict "$TASK_STAGE/Mercurius.app"
-rm -rf "$(dirname -- "$TASK_APP")"
+rm -rf "$TASK_OUT"
 check_destination
 if [ -d "$TASK_DEST" ]; then
     # Quit only processes running this exact installed executable.

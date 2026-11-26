@@ -174,6 +174,28 @@ class BuildBoundary(unittest.TestCase):
                         self.assertEqual((old / 'old').read_text(), 'previous build')
                     if case not in ['verify-fails', 'final-move-fails', 'interrupted', 'swapped-during-build']:
                         self.assertNotIn('--sign', log)
+    def test_install_deletes_only_its_own_build_folder(self):
+        for bad in ['outside', 'dotdot', 'other-prefix', 'nested']:
+            with self.subTest(bad=bad), tempfile.TemporaryDirectory() as directory:
+                parent = Path(directory)
+                root, env = self.fixture(parent)
+                targets = {'outside': parent / 'victim/Mercurius.app',
+                           'dotdot': root / 'dist/Mercurius.x/../../victim/Mercurius.app',
+                           'other-prefix': root / 'dist/Keep.x/Mercurius.app',
+                           'nested': root / 'dist/Mercurius.x/keep/Mercurius.app'}
+                target = targets[bad]
+                real = Path(str(target).replace('dist/Mercurius.x/../../', ''))
+                (real / 'Contents').mkdir(parents=True)
+                (real / 'Contents/keep').write_text('must survive')
+                (root / 'dist/Mercurius.x').mkdir(parents=True, exist_ok=True)
+                (root / 'scripts/build-app.sh').write_text(f'printf "%s\\n" "{target}"\n')
+                env['HOME'] = str(parent / 'home')
+                result = subprocess.run(['sh', 'scripts/install.sh'], cwd=root, env=env, capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('Unexpected build output', result.stderr)
+                self.assertEqual((real / 'Contents/keep').read_text(), 'must survive')
+                self.assertFalse((parent / 'home/Applications/Mercurius.app').exists())
+
     def test_install_quits_only_the_installed_copy(self):
         with tempfile.TemporaryDirectory() as directory:
             parent = Path(directory)
