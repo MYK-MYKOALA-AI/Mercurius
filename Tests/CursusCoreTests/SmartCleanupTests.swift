@@ -100,7 +100,7 @@ private let dictionary = Vocabulary(terms: ["Vercel", "Maelah"])
         output: "We should ask Grok Saturday.", vocabulary: Vocabulary(terms: ["Grok"])) == .rejected("dropped words"))
 }
 
-// Review round 5 (Haiku): no correction said, so no new words, facts or meaning changes.
+// No correction said, so no new words, facts or meaning changes.
 @Test func smartNeedsACorrectionToReword() {
     let refused = [
         ("What time is it", "It is noon."),

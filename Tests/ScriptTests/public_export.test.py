@@ -44,13 +44,15 @@ class PublicBoundary(unittest.TestCase):
             self.assertEqual(check.inspect(root, 'Sources/example.swift'), [('dated-person-note', 1)])
             date = '2026' + '-01-02'
             for note in [f'// Fred {date}: paste.', f'// Pat Example, {date}: paste.', f'x // the bubble (Robin {date}).',
-                         '// Sol ' + 'r4: a capital.', '// see .' + 'artifacts/bench.md']:
+                         '// Sol ' + 'r4: a capital.', '// see .' + 'artifacts/bench.md', f'# Robin {date}: a shell note.',
+                         f'x = 1 // [Robin {date}]', '// kept (' + f'Sol, Grok and Robin, {date}).', '// Review ' + 'round 2: a fix.',
+                         '// a fix (Sol ' + 'round 2).', '// a fix (' + 'Sol, Grok).']:
                 source.write_text(note + '\n')
-                self.assertEqual(len(check.inspect(root, 'Sources/example.swift')), 1, note)
+                self.assertTrue(check.inspect(root, 'Sources/example.swift'), note)
             source.write_text('// Measured 2026' + '-01-02: paste into the focused field.\nlet x = "Pat Example"\n')
             self.assertEqual(check.inspect(root, 'Sources/example.swift'), [])
             listed = root / 'terms.txt'
-            listed.write_text('# maintainer words\n\npat example\nzz-machine\n')
+            listed.write_text('# maintainer words\n\npat example\nzz-machine\nZo\u00eb\n')
             old = os.environ.get('MERCURIUS_PRIVATE_TERMS')
             os.environ['MERCURIUS_PRIVATE_TERMS'] = str(listed)
             try:
@@ -60,10 +62,18 @@ class PublicBoundary(unittest.TestCase):
                     os.environ.pop('MERCURIUS_PRIVATE_TERMS')
                 else:
                     os.environ['MERCURIUS_PRIVATE_TERMS'] = old
-            self.assertEqual(len(terms), 2)
+            self.assertEqual(len(terms), 3)
             self.assertEqual(check.inspect(root, 'Sources/example.swift', terms), [('private-term', 2)])
             source.write_text('let x = "Patexample, zz-machines"\n')
             self.assertEqual(check.inspect(root, 'Sources/example.swift', terms), [])
+            source.write_text('let x = "ZO\u00cb"\n')
+            self.assertEqual(check.inspect(root, 'Sources/example.swift', terms), [('private-term', 1)])
+            named = root / 'Sources/ZzMachine.swift'
+            named.write_text('let x = 1\n')
+            self.assertEqual(check.inspect(root, 'Sources/ZzMachine.swift', terms), [])
+            named = root / 'Sources/zz-machine.swift'
+            named.write_text('let x = 1\n')
+            self.assertEqual(check.inspect(root, 'Sources/zz-machine.swift', terms), [('private-term-in-path', 0)])
 
     def test_document_fixtures_require_synthetic_identifiers(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -17,17 +17,36 @@ xcrun --find swift >/dev/null 2>&1 || {
 }
 TASK_DEST="$HOME/Applications/Mercurius.app"
 TASK_EXECUTABLE="$TASK_DEST/Contents/MacOS/CursusVox"
-if [ -L "$TASK_DEST" ] || { [ -e "$TASK_DEST" ] && [ ! -d "$TASK_DEST" ]; }; then
-    say "$TASK_DEST is not a Mercurius build; move it away and run this again."
-    exit 1
-fi
-if [ -d "$TASK_DEST" ]; then
-    TASK_EXISTING=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$TASK_DEST/Contents/Info.plist" 2>/dev/null || true)
-    [ "$TASK_EXISTING" = "$TASK_BUNDLE_ID" ] || {
+# Only a previous Mercurius build may sit at the destination; checked now and again just before
+# the swap, because the build takes minutes.
+check_destination() {
+    if [ -L "$TASK_DEST" ] || { [ -e "$TASK_DEST" ] && [ ! -d "$TASK_DEST" ]; }; then
         say "$TASK_DEST is not a Mercurius build; move it away and run this again."
         exit 1
-    }
-fi
+    fi
+    if [ -d "$TASK_DEST" ]; then
+        TASK_EXISTING=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$TASK_DEST/Contents/Info.plist" 2>/dev/null || true)
+        [ "$TASK_EXISTING" = "$TASK_BUNDLE_ID" ] || {
+            say "$TASK_DEST is not a Mercurius build; move it away and run this again."
+            exit 1
+        }
+    fi
+}
+check_destination
+mkdir -p "$HOME/Applications"
+TASK_LOCK="$HOME/Applications/.Mercurius-install.lock"
+mkdir "$TASK_LOCK" 2>/dev/null || {
+    say "Another Mercurius install is running. If none is, remove $TASK_LOCK and run this again."
+    exit 1
+}
+TASK_STAGE=
+cleanup() {
+    [ -z "$TASK_STAGE" ] || rm -rf "$TASK_STAGE/Mercurius.app"
+    [ -z "$TASK_STAGE" ] || rmdir "$TASK_STAGE" 2>/dev/null || true
+    rmdir "$TASK_LOCK" 2>/dev/null || true
+}
+trap cleanup EXIT
+trap 'exit 1' HUP INT TERM
 if [ -z "${MERCURIUS_SIGNING_IDENTITY:-}" ]; then
     # Your own certificate, found by its fingerprint. A free Apple ID in Xcode is enough.
     TASK_IDENTITIES=$(security find-identity -v -p codesigning 2>/dev/null || true)
@@ -56,12 +75,11 @@ TASK_BUILT=$(sh scripts/build-app.sh)
 TASK_APP=$(printf '%s\n' "$TASK_BUILT" | tail -n 1)
 [ -d "$TASK_APP" ] || { say 'The build did not produce an app.'; exit 1; }
 # Stage next to the destination and verify there, so a failed copy never touches the installed app.
-mkdir -p "$HOME/Applications"
 TASK_STAGE=$(mktemp -d "$HOME/Applications/.Mercurius-install.XXXXXXXX")
-trap 'rm -rf "$TASK_STAGE"' EXIT HUP INT TERM
 ditto "$TASK_APP" "$TASK_STAGE/Mercurius.app"
 codesign --verify --strict "$TASK_STAGE/Mercurius.app"
 rm -rf "$(dirname -- "$TASK_APP")"
+check_destination
 if [ -d "$TASK_DEST" ]; then
     # Quit only processes running this exact installed executable.
     TASK_PIDS=$(ps -axo pid=,comm= | awk -v exe="$TASK_EXECUTABLE" '{ pid = $1; sub(/^ *[0-9]+ /, ""); if ($0 == exe) print pid }')
@@ -77,10 +95,25 @@ if [ -d "$TASK_DEST" ]; then
             exit 1
         fi
     fi
+    # Swap by renames on the same disk; if the new copy cannot take its place, the old one goes back.
+    mv "$TASK_DEST" "$TASK_STAGE/previous.app"
+    if ! mv "$TASK_STAGE/Mercurius.app" "$TASK_DEST"; then
+        if mv "$TASK_STAGE/previous.app" "$TASK_DEST"; then
+            say 'Could not put the new copy in place; your previous Mercurius is back where it was.'
+        else
+            say "Could not put the new copy in place. Your previous Mercurius is at $TASK_STAGE/previous.app"
+        fi
+        exit 1
+    fi
     mkdir -p "$HOME/.Trash"
-    mv "$TASK_DEST" "$HOME/.Trash/Mercurius $(date +%Y-%m-%d-%H%M%S)-$$.app"
+    TASK_TRASHED="$HOME/.Trash/Mercurius $(date +%Y-%m-%d-%H%M%S)-$$.app"
+    mv "$TASK_STAGE/previous.app" "$TASK_TRASHED" || {
+        say "Installed, but the previous copy could not go to the Trash; it is at $TASK_STAGE/previous.app"
+        TASK_STAGE=
+    }
+else
+    mv "$TASK_STAGE/Mercurius.app" "$TASK_DEST"
 fi
-mv "$TASK_STAGE/Mercurius.app" "$TASK_DEST"
 printf '%s\n' "Installed $TASK_DEST"
 if [ "${MERCURIUS_NO_OPEN:-}" != 1 ]; then
     open "$TASK_DEST"

@@ -45,7 +45,12 @@ cd Mercurius
 sh scripts/install.sh
 ```
 
-[`scripts/install.sh`](scripts/install.sh) finds your one Apple Development certificate, builds the app, signs it with that certificate, checks the copy, then puts it at `~/Applications/Mercurius.app` and opens it. Read it before you run it. The script reads no API keys and uploads nothing. Once open, the app fetches OpenRouter's public model price list (no key, audio or text) and, if you have saved an ElevenLabs key, your credit balance. Running it again updates the app; the previous Mercurius copy goes to your Trash. It refuses to replace anything at that path that is not Mercurius. If you have several certificates, choose one with `MERCURIUS_SIGNING_IDENTITY=<fingerprint> sh scripts/install.sh`. Set `MERCURIUS_NO_OPEN=1` to skip opening the app.
+[`scripts/install.sh`](scripts/install.sh) builds the app, signs it with your certificate, checks the signed copy, puts it at `~/Applications/Mercurius.app` and opens it. Read it before you run it.
+
+- **Certificate:** `MERCURIUS_SIGNING_IDENTITY=<fingerprint>` if you set it; otherwise your one Apple Development certificate, or your one Developer ID Application certificate if you have no Apple Development one. With several, it stops and asks you to choose.
+- **Updating:** running it again rebuilds the code you have checked out, so run `git pull` first. The previous Mercurius copy goes to your Trash only after the new one is in place, and is put back if the swap fails. It never replaces anything at that path that is not Mercurius.
+- **Network:** the script reads no API keys and uploads nothing. Once open, the app fetches OpenRouter's public model price list (no key, audio or text) and, if you have saved an ElevenLabs key, your credit balance.
+- Set `MERCURIUS_NO_OPEN=1` to skip opening the app.
 
 On first launch, follow setup: allow the microphone and Accessibility, then add your own OpenRouter or ElevenLabs key, or use on-device speech with no key.
 

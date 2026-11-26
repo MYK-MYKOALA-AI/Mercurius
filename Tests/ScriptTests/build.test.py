@@ -33,10 +33,14 @@ class BuildBoundary(unittest.TestCase):
         binary.write_text('fixture executable')
         for name, text in {
             'uname': '#!/bin/sh\nprintf "%s\\n" "$FIXTURE_ARCH"\n',
-            'xcrun': '#!/bin/sh\ncase "$*" in *--show-bin-path*) printf "%s\\n" "$FIXTURE_BIN";; esac\n',
+            'xcrun': '#!/bin/sh\ncase "$*" in *--show-bin-path*) printf "%s\\n" "$FIXTURE_BIN";; '
+                     '*--product*) [ -z "${FIXTURE_SWAP:-}" ] || /usr/bin/plutil -replace CFBundleIdentifier '
+                     '-string com.example.other "$HOME/Applications/Mercurius.app/Contents/Info.plist";; esac\n',
             'plutil': '#!/bin/sh\nexit 0\n',
             'codesign': '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FIXTURE_LOG"\n'
-                        'case "$1" in --verify) [ -z "${FIXTURE_VERIFY_FAIL:-}" ] || exit 1;; esac\n',
+                        'case "$*" in --verify*Mercurius-install*) [ -z "${FIXTURE_VERIFY_FAIL:-}" ] || exit 1;; esac\n',
+            'mv': '#!/bin/sh\ncase "$1" in */.Mercurius-install.*/Mercurius.app) '
+                  '[ -z "${FIXTURE_MV_FAIL:-}" ] || exit 1;; esac\nexec /bin/mv "$@"\n',
             'sw_vers': '#!/bin/sh\nprintf "%s\\n" "${FIXTURE_MACOS:-26.1}"\n',
             'security': '#!/bin/sh\nprintf "%s" "$FIXTURE_IDENTITIES"\n',
             'pgrep': '#!/bin/sh\nexit 1\n',
@@ -105,7 +109,8 @@ class BuildBoundary(unittest.TestCase):
         dev = 'A' * 40
         one = f'  1) {dev} "Apple Development: Fixture Person (TEAM000001)"\n     1 valid identities found\n'
         two = one + f'  2) {"B" * 40} "Apple Development: Fixture Other (TEAM000002)"\n'
-        for case in ['one', 'none', 'two', 'explicit', 'old-macos', 'foreign-app', 'symlink', 'verify-fails']:
+        for case in ['one', 'none', 'two', 'explicit', 'old-macos', 'foreign-app', 'symlink', 'verify-fails',
+                     'final-move-fails', 'swapped-during-build', 'locked']:
             with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
                 parent = Path(directory)
                 root, env = self.fixture(parent)
@@ -127,10 +132,16 @@ class BuildBoundary(unittest.TestCase):
                     env['FIXTURE_MACOS'] = '15.6'
                 if case == 'verify-fails':
                     env['FIXTURE_VERIFY_FAIL'] = '1'
+                if case == 'final-move-fails':
+                    env['FIXTURE_MV_FAIL'] = '1'
+                if case == 'swapped-during-build':
+                    env['FIXTURE_SWAP'] = '1'
+                if case == 'locked':
+                    (home / 'Applications/.Mercurius-install.lock').mkdir()
                 result = subprocess.run(['sh', 'scripts/install.sh'], cwd=root, env=env, capture_output=True, text=True)
                 log = (parent / 'log').read_text() if (parent / 'log').exists() else ''
-                staged = list((home / 'Applications').glob('.Mercurius-install.*'))
-                self.assertEqual(staged, [])
+                leftovers = sorted(p.name for p in (home / 'Applications').glob('.Mercurius-install*'))
+                self.assertEqual(leftovers, ['.Mercurius-install.lock'] if case == 'locked' else [])
                 if case in ['one', 'explicit']:
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertTrue((old / 'Contents/MacOS/CursusVox').is_file())
@@ -146,14 +157,17 @@ class BuildBoundary(unittest.TestCase):
                     self.assertNotEqual(result.returncode, 0)
                     expected = {'none': 'Manage Certificates', 'two': 'more than one Apple Development',
                                 'old-macos': 'macOS 26 or later', 'foreign-app': 'is not a Mercurius build',
-                                'symlink': 'is not a Mercurius build', 'verify-fails': ''}[case]
+                                'symlink': 'is not a Mercurius build', 'verify-fails': '',
+                                'final-move-fails': 'previous Mercurius is back where it was',
+                                'swapped-during-build': 'is not a Mercurius build',
+                                'locked': 'Another Mercurius install is running'}[case]
                     self.assertIn(expected, result.stderr)
                     self.assertFalse((home / '.Trash').exists())
                     if case == 'symlink':
                         self.assertTrue(old.is_symlink())
                     else:
                         self.assertEqual((old / 'old').read_text(), 'previous build')
-                    if case != 'verify-fails':
+                    if case not in ['verify-fails', 'final-move-fails', 'swapped-during-build']:
                         self.assertNotIn('--sign', log)
     def test_install_quits_only_the_installed_copy(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -2,7 +2,7 @@ import Foundation
 import CursusCore
 
 // A recording whose transcription failed is kept so it can be retried instead
-// of spoken again (Sol, Grok and Muse, 2026-10-13). Files live in a private
+// of spoken again. Files live in a private
 // cache folder (0700, files 0600), at most three, and are deleted after a
 // successful retry or ten minutes. They are never logged or synced.
 final class AudioOutbox: @unchecked Sendable {

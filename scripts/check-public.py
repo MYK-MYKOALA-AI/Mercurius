@@ -21,10 +21,11 @@ RULES = {
     'slack-token': rb'\bxox[baprs]-[A-Za-z0-9-]{15,}',
     'personal-home-path': rb'/Users/[A-Za-z0-9._-]{2,}/|/home/[A-Za-z0-9._-]{2,}/',
     'internal-ticket': rb'\bMYK-[0-9]+',
-    # A person's name (or full name) beside a date, after a comment marker or an opening bracket.
+    # A person's name, full name or list of names beside a date, after a comment marker or bracket.
     # Common past-tense verbs ("Measured 2026-10-12") are allowed; names like Fred and Ted are not.
-    'dated-person-note': rb'(?://|\()[ \t]*(?!(?:Measured|Checked|Updated|Added|Changed|Verified|Tested|Fixed|Released|Withdrawn|Seen|Noted|Since|Until|Before|After)\b)[A-Z][a-z]+(?: [A-Z][a-z]+)?,? \(?[0-9]{4}-[0-9]{2}-[0-9]{2}',
-    'review-round-note': rb'\b(?:Sol|Haiku|Opus|Sonnet|Astra|Neon|Gemini|Codex|Muse|Terra) r[0-9]+\b',
+    'dated-person-note': rb'(?://|#|\(|\[)[ \t]*(?!(?:Measured|Checked|Updated|Added|Changed|Verified|Tested|Fixed|Released|Withdrawn|Seen|Noted|Since|Until|Before|After)\b)[A-Z][a-z]+(?: [A-Z][a-z]+)?(?:(?:,| and|, and) [A-Z][a-z]+)*,? \(?[0-9]{4}-[0-9]{2}-[0-9]{2}',
+    'review-round-note': rb'(?i:\breview round\b)|\b(?:Sol|Haiku|Opus|Sonnet|Astra|Neon|Gemini|Codex|Muse|Terra|DeepSeek) (?:r|round )[0-9]+\b'
+                         rb'|\((?:Sol|Haiku|Opus|Sonnet|Astra|Neon|Codex|Muse|Terra|DeepSeek)(?:(?:,| and|, and) [A-Z][A-Za-z]+)*[,)]',
     'private-path-reference': rb'(?<![A-Za-z0-9_])\.(?:artifacts|planning)/(?=[A-Za-z0-9_.-])',
     'literal-credential': rb'(?i)(?:api[_-]?key|password|secret)\s*[:=]\s*[\x22\x27][A-Za-z0-9_/-]{24,}[\x22\x27]',
 }
@@ -93,12 +94,18 @@ def private_terms():
     if not location:
         return []
     lines = Path(location).read_text(encoding='utf-8').splitlines()
-    return [re.compile(rb'(?i)(?<![A-Za-z0-9])' + re.escape(line.strip().encode()) + rb'(?![A-Za-z0-9])')
+    return [re.compile(r'(?<!\w)' + re.escape(line.strip()) + r'(?!\w)', re.IGNORECASE)
             for line in lines if line.strip() and not line.lstrip().startswith('#')]
+
+
+def has_private_term(text, terms):
+    return any(term.search(text) for term in terms)
 
 
 def inspect(root, relative, terms=()):
     path = Path(relative)
+    if has_private_term(relative, terms):
+        return [('private-term-in-path', 0)]
     if path.is_absolute() or '..' in path.parts or not path.parts:
         return [('unsafe-path', 0)]
     if any(part in FORBIDDEN for part in path.parts):
@@ -118,7 +125,9 @@ def inspect(root, relative, terms=()):
     data = source.read_bytes()
     found = [(name, data[:m.start()].count(b'\n') + 1)
              for name, pattern in RULES.items() for m in re.finditer(pattern, data)]
-    found += [('private-term', data[:m.start()].count(b'\n') + 1) for term in terms for m in term.finditer(data)]
+    if terms:
+        text = data.decode('utf-8', 'replace')
+        found += [('private-term', text[:m.start()].count('\n') + 1) for term in terms for m in term.finditer(text)]
     if path.name.endswith('Tests.swift'):
         for match in re.finditer(rb'\b(?:let|var)\s+(?:id|documentID|docID|spreadsheetID|presentationID)\s*=\s*"([A-Za-z0-9_-]{25,})"', data):
             value = match.group(1)
@@ -139,7 +148,8 @@ def main():
     terms = private_terms()
     findings = [(path, rule, line) for path in paths for rule, line in inspect(root, path, terms)]
     for path, rule, line in findings:
-        print(f'{path}:{line}: {rule}')
+        shown = '<path with a private term>' if has_private_term(path, terms) else path
+        print(f'{shown}:{line}: {rule}')
     scope = f' and {len(terms)} private terms' if terms else ''
     print(f'Checked {len(paths)} publication files{scope}; {len(findings)} findings. Matched values are never printed.')
     return int(bool(findings))

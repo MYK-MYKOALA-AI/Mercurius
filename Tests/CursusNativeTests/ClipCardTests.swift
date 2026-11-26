@@ -153,7 +153,7 @@ private let sample = ClipDraft(title: "Ship it", properties: [.init(name: "sourc
     #expect(model.takeEdits() == nil)
 }
 
-// Review round 1 (P2): the app's copy effect reports a copy that worked as done; only a gone
+// The app's copy effect reports a copy that worked as done; only a gone
 // app is a failure (a nil success was being turned into "CursusVox is quitting").
 @MainActor private final class Board { var problem: String?; var copied: [String] = [] }
 @MainActor @Test func copyEffectKeepsSuccessASuccess() async {
@@ -187,7 +187,7 @@ private let sample = ClipDraft(title: "Ship it", properties: [.init(name: "sourc
     #expect(model.notice == nil)
 }
 
-// Review round 1 (P1): the card hands its edits to the clipboard before an action runs, so the
+// The card hands its edits to the clipboard before an action runs, so the
 // save's completion (which drops the stored copy only if it is what was saved) sees them.
 @MainActor @Test func cardHandsEditsOverBeforeSaving() async {
     _ = NSApplication.shared
@@ -218,7 +218,7 @@ private let sample = ClipDraft(title: "Ship it", properties: [.init(name: "sourc
     card.panel.orderOut(nil)
 }
 
-// Review round 1 (P2): however long the title and however many properties, the card fits the
+// However long the title and however many properties, the card fits the
 // screen and Save and Copy stay in view; the content scrolls instead.
 @MainActor @Test func theFooterStaysInViewOnAnOverlongClip() throws {
     _ = NSApplication.shared
@@ -250,7 +250,7 @@ private final class Planner: @unchecked Sendable {
     var ranOnMain: Bool { lock.lock(); defer { lock.unlock() }; return onMain }
 }
 
-// Review round 2 (P2): the card's planned path and folder list are worked out off the main actor
+// The card's planned path and folder list are worked out off the main actor
 // (a slow vault never stalls typing); the path shows at once, and a late answer for an older
 // title is never shown.
 @MainActor @Test func cardPlansPathsOffTheMainActorAndShowsOnlyTheLatest() async throws {

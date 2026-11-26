@@ -180,7 +180,7 @@ private actor RecoveryFailureGate {
 }
 
 // A recording recovered without its stored settings must never inherit the current engine: that could
-// upload audio the user recorded on-device after they switched to a cloud engine (Sol round 2).
+// upload audio the user recorded on-device after they switched to a cloud engine.
 @Test func recoveredRecordingRetriesPrivatelyAndNeedsOptInForTheCurrentEngine() {
     let cloud = RecoveryConfiguration(engine: .cloud, speechModel: "openai/whisper", cleanupEnabled: true)
     let stored = RecoveryConfiguration(engine: .local, speechModel: "apple-speech")

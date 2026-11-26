@@ -43,7 +43,6 @@ private let article = """
     #expect(FileManager.default.fileExists(atPath: kept.path))
 }
 
-// Review round 1 (Sol, Grok).
 @Test func purgeNeverRemovesFolders() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
@@ -64,7 +63,7 @@ private let article = """
     #expect(FrontPage.script(for: "com.evil\" & do shell script \"x") == nil)
 }
 
-// Review round 3: a clip that timed out never answers the next one.
+// A clip that timed out never answers the next one.
 @MainActor @Test func aLateClipNeverAnswersTheNextOne() async throws {
     let script = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         .deletingLastPathComponent().appendingPathComponent("Resources/cursus-clip.js")

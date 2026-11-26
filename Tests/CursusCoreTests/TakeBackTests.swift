@@ -60,7 +60,7 @@ private let off = Vocabulary(terms: [])
     #expect(Vocabulary(terms: [], takeBacks: ["oops", "OOPS", ""]).takeBacks == ["oops"])
 }
 
-// Review round 3 (Sol, Haiku): edits the user never took back stay refused.
+// Edits the user never took back stay refused.
 @Test func takeBacksNeverEatRealWords() {
     let vocabulary = Vocabulary(terms: [], takeBacks: TakeBack.defaults + ["oops"])
     let refused = [
@@ -79,7 +79,6 @@ private let off = Vocabulary(terms: [])
     #expect(TakeBack.mentioned("Can you book a meeting for Friday? No, I mean Saturday.", phrases: TakeBack.defaults))
 }
 
-// Review round 4.
 @Test func takeBackPhrasesStayInOneSentence() {
     let vocabulary = Vocabulary(terms: [], takeBacks: TakeBack.defaults)
     #expect(TranscriptCleanup.judge(raw: "Book Friday, no. Wait for the confirmation on Saturday.",

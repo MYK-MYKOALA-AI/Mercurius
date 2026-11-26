@@ -105,7 +105,7 @@ private let draft = ClipDraft(title: "Ship it", properties: [.init(name: "source
     #expect(store.item(saved) == nil && store.count == 1)
 }
 
-// Review round 1 (P1): a save that finishes after newer edits reached the clipboard drops only
+// A save that finishes after newer edits reached the clipboard drops only
 // the draft it wrote; the newer one stays, and reopening the clip shows it.
 @MainActor @Test func savingKeepsEditsMadeWhileTheNoteWasWritten() async throws {
     let root = tempRoot(), vault = tempRoot()
@@ -128,7 +128,7 @@ private let draft = ClipDraft(title: "Ship it", properties: [.init(name: "source
     #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent(id.uuidString + ".json").path))
 }
 
-// Review round 1 (P2): Save to Clips from a row runs once per item, however often it is pressed.
+// Save to Clips from a row runs once per item, however often it is pressed.
 @MainActor @Test func rowSavesRunOncePerItem() async throws {
     let root = tempRoot()
     defer { try? FileManager.default.removeItem(at: root) }
@@ -169,7 +169,7 @@ private let draft = ClipDraft(title: "Ship it", properties: [.init(name: "source
     #expect(store.item(other) == nil && store.count == 0)
 }
 
-// Review round 1 (P1): at ten minutes a dictation leaves the Clipboard page as well as the store,
+// At ten minutes a dictation leaves the Clipboard page as well as the store,
 // even while Home is closed: no row, label or button keeps its words.
 extension MainRunLoop {
 @MainActor @Test func purgedDictationsLeaveTheClipboardPage() async throws {
@@ -234,7 +234,7 @@ extension MainRunLoop {
     #expect(try manager.contentsOfDirectory(atPath: outside.path).isEmpty)
 }
 
-// Review round 1 (P2): the store's files are read only as plain files within a limit, off the
+// The store's files are read only as plain files within a limit, off the
 // main actor: a FIFO in an item's place is refused at once instead of blocking.
 @MainActor @Test func storeReadsOnlyBoundedPlainFiles() async throws {
     let root = tempRoot()
@@ -276,7 +276,7 @@ extension MainRunLoop {
     #expect(store.items.first?.title == "Old")   // listed by date, newest first
 }
 
-// Review round 1 (P1): a saved note is only read from inside the vault, never through a link.
+// A saved note is only read from inside the vault, never through a link.
 @MainActor @Test func savedNotesAreNeverReadThroughALink() async throws {
     let manager = FileManager.default
     let root = tempRoot(), vault = tempRoot(), outside = tempRoot()
@@ -305,7 +305,7 @@ extension MainRunLoop {
     #expect(ClipsVault.readNote(secret, in: vault) == nil)
 }
 
-// Review round 1 (P2): every kept item can be reached: past a page of rows, "Show more" adds the next.
+// Every kept item can be reached: past a page of rows, "Show more" adds the next.
 extension MainRunLoop {
 @MainActor @Test func everyKeptItemCanBeReachedOnTheClipboardPage() async throws {
     let root = tempRoot()
@@ -344,7 +344,7 @@ private final class Once: @unchecked Sendable {
     }
 }
 
-// Review round 2 (P1): a missing-note check that finds nothing to keep doesn't delete an entry
+// A missing-note check that finds nothing to keep doesn't delete an entry
 // that changed while it ran (the card handing over a newer draft, or a save elsewhere).
 @MainActor @Test func missingNoteCleanupKeepsAnEntryChangedMeanwhile() async throws {
     let root = tempRoot(), vault = tempRoot()
@@ -371,7 +371,7 @@ private final class Once: @unchecked Sendable {
     #expect(await store.draft(resaved) == draft)
 }
 
-// Review round 2 (P1): the Clipboard folder swapped for a link after it was opened, before a
+// The Clipboard folder swapped for a link after it was opened, before a
 // file is written into it: the write stays in the folder that was opened, nothing reaches the
 // link's target, and the next write is refused with a problem shown.
 @MainActor @Test func aClipboardFolderSwappedMidWriteIsNotFollowed() async throws {
@@ -395,13 +395,13 @@ private final class Once: @unchecked Sendable {
     #expect(manager.fileExists(atPath: moved.appendingPathComponent(id.uuidString + ".json").path))
     #expect(store.problem != nil)
     #expect(try manager.destinationOfSymbolicLink(atPath: root.path) == outside.path)
-    // Review round 3 (P2): the capture can't be read back from where it is read, so it stays
+    // The capture can't be read back from where it is read, so it stays
     // recoverable: Copy and Save still get its words.
     #expect(await store.text(id) == "private words")
     #expect(await store.captureDraft(id)?.body == "private words")
 }
 
-// Review round 2 (P1): a save is trusted (and the stored draft dropped) only when the path it
+// A save is trusted (and the stored draft dropped) only when the path it
 // reported is inside the vault and reads back as the draft; otherwise the draft stays.
 @MainActor @Test func aSaveIsOnlyTrustedWhenItsNoteReadsBack() async throws {
     let manager = FileManager.default
@@ -428,7 +428,7 @@ private final class Once: @unchecked Sendable {
     #expect(await store.draft(id) == draft)
 }
 
-// Review round 2 (P2): the card's save and a Clipboard row's Save to Clips go through one gate per
+// The card's save and a Clipboard row's Save to Clips go through one gate per
 // entry, so a slow save from either can't be doubled by the other into two notes.
 @MainActor @Test func cardAndRowShareOneSaveGate() async throws {
     let root = tempRoot(), vault = tempRoot()
@@ -472,7 +472,7 @@ private final class Once: @unchecked Sendable {
     #expect(names == ["Ship it.md", "Window.md"])
 }
 
-// Review round 2 (P2): a storage problem appears on the Clipboard page even when no row changed.
+// A storage problem appears on the Clipboard page even when no row changed.
 extension MainRunLoop {
 @MainActor @Test func storageProblemsShowWhenNoRowChanges() async throws {
     let manager = FileManager.default
@@ -504,7 +504,7 @@ extension MainRunLoop {
 }
 }
 
-// Review round 2 (P2): the old Clips page's recent loose clips join the clipboard once, as unsaved
+// The old Clips page's recent loose clips join the clipboard once, as unsaved
 // clips that can be reviewed, pinned and saved, and still go 48 hours after they were made.
 @MainActor @Test func looseClipsFromTheOldPageJoinTheClipboard() async throws {
     let manager = FileManager.default
@@ -536,7 +536,7 @@ extension MainRunLoop {
     #expect(store.count == 1 && store.item(item.id) != nil)
 }
 
-// Review round 3 (P1): a kept list that can't be read (damaged, or over its size limit) is set
+// A kept list that can't be read (damaged, or over its size limit) is set
 // aside, never overwritten, and nothing in the folder is cleaned up as unknown, then or later.
 @MainActor @Test func anUnreadableListIsKeptAsideAndNothingIsCleanedUp() async throws {
     let manager = FileManager.default
@@ -569,7 +569,7 @@ extension MainRunLoop {
     }
 }
 
-// Review round 3 (P1): nothing is written bigger than it is read back at. A huge title is cut
+// Nothing is written bigger than it is read back at. A huge title is cut
 // short in the list (which stays small); content too large for its file stays in memory, warned.
 @MainActor @Test func nothingIsWrittenLargerThanItCanBeReadBack() async throws {
     let root = tempRoot()
@@ -596,7 +596,7 @@ extension MainRunLoop {
     #expect(ClipboardStore.field(String(repeating: "é", count: 1000), 300).count == 300)
 }
 
-// Review round 3 (P2): a content write that failed keeps its warning after a later list write
+// A content write that failed keeps its warning after a later list write
 // succeeds, until that item is on disk or gone.
 @MainActor @Test func anUnsavedItemKeepsItsWarningAfterTheListIsWritten() async throws {
     let root = tempRoot()
@@ -623,7 +623,7 @@ extension MainRunLoop {
     #expect(store.problem == nil)
 }
 
-// Review round 4 (P2-2/P2-3): the vault's notes are looked for at every launch and nothing records
+// The vault's notes are looked for at every launch and nothing records
 // an import as done, so a vault not mounted, or a clipboard that couldn't keep them, is simply
 // tried again on the next launch; repeating it lists nothing twice.
 @MainActor @Test func vaultNotesAreListedAtEveryLaunchWithoutDuplicates() async throws {
@@ -649,7 +649,7 @@ extension MainRunLoop {
     }
 }
 
-// Review round 4 (P2-2): a listed loose clip whose kept copy never reached the disk (its write
+// A listed loose clip whose kept copy never reached the disk (its write
 // failed, the list's didn't) is written again from its note on the next launch, not skipped.
 @MainActor @Test func aLooseClipMissingItsCopyIsRepairedNextLaunch() async throws {
     let manager = FileManager.default
@@ -682,7 +682,7 @@ extension MainRunLoop {
     #expect(await third.draft(id)?.body == "Edited.")
 }
 
-// Review round 4 (P2-3): a loose clip or a folder of saved notes that can't be read this launch is
+// A loose clip or a folder of saved notes that can't be read this launch is
 // left out, and listed on a later launch once it can be.
 @MainActor @Test func unreadableNotesAreListedOnALaterLaunch() async throws {
     let manager = FileManager.default
@@ -725,7 +725,7 @@ extension MainRunLoop {
     #expect(next.count == 0)
 }
 
-// Review round 4 (P1-1): the list belongs to the folder it was read from. Another folder restored
+// The list belongs to the folder it was read from. Another folder restored
 // at the same path while running is loaded afresh: its list is taken over (or set aside when it
 // can't be read), never written over, and its items' files are not cleaned up as unknown.
 @MainActor @Test func aFolderReplacedWhileRunningKeepsItsOwnList() async throws {
@@ -771,7 +771,7 @@ extension MainRunLoop {
     #expect(manager.fileExists(atPath: root.appendingPathComponent(ClipboardDisk.name(kept)).path))
 }
 
-// Review round 4 (P2-4): a note the card saved that was moved or deleted since isn't reported as
+// A note the card saved that was moved or deleted since isn't reported as
 // saved: Save writes the draft as a new note. One still there (even reopened from the note
 // itself) is reused, never doubled.
 @MainActor @Test func saveWritesANewNoteWhenTheSavedOneIsGone() async throws {
@@ -816,7 +816,7 @@ extension MainRunLoop {
     #expect(writes == 4 && ClipsVault.isNote(again, in: vault))
 }
 
-// Review round 3 (P2): Open note (a row) and Open in Obsidian (the card, with its remembered
+// Open note (a row) and Open in Obsidian (the card, with its remembered
 // path) check the note again just before opening, as Review and Copy read it.
 @MainActor @Test func openNoteChecksTheSavedNoteJustBeforeOpening() async throws {
     let manager = FileManager.default

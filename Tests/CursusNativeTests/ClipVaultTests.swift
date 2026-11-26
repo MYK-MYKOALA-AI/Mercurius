@@ -190,7 +190,7 @@ private func mode(_ url: URL) throws -> Int? {
     #expect(notes.first?.bytes == 4)
 }
 
-// Review round 1 (P2): a list item holding a comma stays one item from the page, through the
+// A list item holding a comma stays one item from the page, through the
 // card's field and the stored draft, to the note and back.
 @Test func listItemsKeepTheirBoundaries() throws {
     let markdown = """
@@ -225,7 +225,7 @@ private func mode(_ url: URL) throws -> Int? {
     #expect(old.items == ["a", "b"] && old.value.isEmpty)
 }
 
-// Review round 1 (P1): the folder is held open from its checks to the write, so swapping it for
+// The folder is held open from its checks to the write, so swapping it for
 // a link in between can't send the note outside the vault.
 @Test func aFolderSwappedForALinkMidSaveIsNotFollowed() throws {
     let manager = FileManager.default
@@ -239,7 +239,7 @@ private func mode(_ url: URL) throws -> Int? {
     }
     #expect(try manager.contentsOfDirectory(atPath: outside.path).isEmpty)
     #expect(try String(contentsOf: root.appendingPathComponent("Moved/t.md"), encoding: .utf8) == "note")
-    // Review round 2 (P1): the path returned is the file that was written (now under Moved), not
+    // The path returned is the file that was written (now under Moved), not
     // Clips/t.md behind the link, and reading that path inside the vault gives the note.
     #expect(ClipsVault.relative(written, in: root) == "Moved/t.md")
     #expect(ClipsVault.readNote(written, in: root) == "note")
@@ -249,7 +249,7 @@ private func mode(_ url: URL) throws -> Int? {
     #expect(try manager.contentsOfDirectory(atPath: outside.path).isEmpty)
 }
 
-// Review round 1 (P1): reading a note takes a plain file inside the vault, within a size limit.
+// Reading a note takes a plain file inside the vault, within a size limit.
 @Test func notesAreReadOnlyAsPlainFilesInsideTheVault() throws {
     let manager = FileManager.default
     let root = tempRoot()
@@ -264,7 +264,7 @@ private func mode(_ url: URL) throws -> Int? {
     #expect(ClipsVault.readNote(file, in: root) == nil)   // refused at once, never waits on the FIFO
 }
 
-// Review round 2 (P1): a folder moved out of the vault mid-save: the note it got is removed again
+// A folder moved out of the vault mid-save: the note it got is removed again
 // and the save refused, so nothing is reported, or left, outside the vault.
 @Test func aFolderMovedOutOfTheVaultMidSaveLeavesNothing() throws {
     let manager = FileManager.default
@@ -303,7 +303,7 @@ private func mode(_ url: URL) throws -> Int? {
     #expect(throws: SafeFolder.Problem.link) { try SafeFolder.open(link, followLink: false, create: true) }
 }
 
-// Review round 2 (P2): an inline YAML list keeps a quoted item whole, commas and quotes and all,
+// An inline YAML list keeps a quoted item whole, commas and quotes and all,
 // and the note written back reads the same.
 @Test func flowListsKeepQuotedCommas() throws {
     let markdown = """
@@ -325,7 +325,7 @@ private func mode(_ url: URL) throws -> Int? {
     #expect(Frontmatter.flowItems(#" "a,b" , 'c' ,, d "#) == ["a,b", "c", "d"])
 }
 
-// Review round 2 (P2): the old Clips page's loose clips still within their 48 hours are found
+// The old Clips page's loose clips still within their 48 hours are found
 // (with their text) for the main clipboard; older ones, hidden files and saved notes are not.
 @Test func recentLooseClipsAreFoundForImport() throws {
     let manager = FileManager.default
