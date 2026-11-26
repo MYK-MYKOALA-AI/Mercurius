@@ -19,6 +19,7 @@ jobs:
         run: |
           python3 Tests/ScriptTests/public_export.test.py
           python3 Tests/ScriptTests/build.test.py
+          python3 Tests/ScriptTests/site.test.py
           python3 scripts/check-public.py
       - name: Serial Swift tests
         run: swift test --jobs 2 --no-parallel

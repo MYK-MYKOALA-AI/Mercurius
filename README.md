@@ -103,7 +103,7 @@ Code and render scripts use MIT. Original Koa/Mercurius artwork is CC BY 4.0; tr
 
 ## Development
 
-`Sources/CursusCore` owns policy and cleanup rules; `Sources/CursusVox` and `CursusPlatform` adapt native APIs. `Tests` contains deterministic fixtures. `apps/web` is a dependency-free static site with no application keys, login or backend. You can preview those static files with any local static server.
+`Sources/CursusCore` owns policy and cleanup rules; `Sources/CursusVox` and `CursusPlatform` adapt native APIs. `Tests` contains deterministic fixtures. `apps/web` is a dependency-free static site with no login or backend. It counts visits with PostHog through `apps/web/assets/visits.js`: a pageview and clicks on links that leave the site, with no cookies, browser storage, person profiles or recordings. It sends nothing on any other host or when Do Not Track or Global Privacy Control is on. The key in that file is PostHog's public, write-only project key. You can preview those static files with any local static server.
 
 Please submit small, reproducible issues and pull requests. Strip private transcripts, recordings, credentials and screenshots before sharing. For confidential reports, follow [SECURITY.md](SECURITY.md).
 
