@@ -257,6 +257,17 @@ import Foundation
         partialText = ""
         status(blocked ? "Delivery blocked; recovery actions available" : "Delivery finished")
     }
+    // A blind Cmd-V paste whose field was read back afterwards and holds the text. Only a
+    // generation whose last outcome is an unconfirmed paste can be upgraded.
+    public func confirmPaste(_ id: UInt64) {
+        // Cleared or replaced recovery (secure input, Clear, a newer result) means this paste is no
+        // longer the one on record; it stays unconfirmed.
+        expireRecovery()
+        guard storedRecovery?.generation == id else { return }
+        let outcomes = session?.id == id ? session?.outcomes : (lastDecisionGeneration == id ? lastOutcomes : nil)
+        guard outcomes?.last == .pasteSentUnconfirmed else { return }
+        addOutcome(.pasteConfirmed, id: id)
+    }
     private func addOutcome(_ outcome: Outcome, id: UInt64) {
         if session?.id == id { session?.outcomes.append(outcome) }
         else if lastDecisionGeneration == id {

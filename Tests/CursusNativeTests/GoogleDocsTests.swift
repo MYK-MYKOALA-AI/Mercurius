@@ -302,5 +302,8 @@ private let served = "https://doc-0o-6g-docstext.googleusercontent.com/export/ab
         #expect(YouTubeTranscript.title(fromWindow: "(193) Manchester City vs The World - YouTube - Audio playing - Comet")
                 == "Manchester City vs The World")
         #expect(YouTubeTranscript.title(fromWindow: "Lecture 1 - YouTube") == "Lecture 1")
+        // " - YouTube" inside the video's own title is not the site suffix.
+        #expect(YouTubeTranscript.title(fromWindow: "Best of - YouTube Rewind - YouTube - Comet") == "Best of - YouTube Rewind")
+        #expect(YouTubeTranscript.title(fromWindow: "Why I left - YouTube Rewind") == "Why I left - YouTube Rewind")
     }
 }

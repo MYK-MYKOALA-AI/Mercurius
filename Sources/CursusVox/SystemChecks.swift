@@ -21,6 +21,14 @@ import Speech
     static var wisprRunning: Bool {
         wisprRunning(bundleIDs: NSWorkspace.shared.runningApplications.map(\.bundleIdentifier))
     }
+    // Meta's Muse dictates while its key is held; its default key is Fn. Read-only: its setting is never changed.
+    static var museTakesFn: Bool {
+        museTakesFn(bundleIDs: NSWorkspace.shared.runningApplications.map(\.bundleIdentifier),
+                    dictationKey: CFPreferencesCopyAppValue("endo_dictation_key" as CFString, "com.meta.endo" as CFString) as? String)
+    }
+    nonisolated static func museTakesFn(bundleIDs: [String?], dictationKey: String?) -> Bool {
+        bundleIDs.contains("com.meta.endo") && (dictationKey == nil || dictationKey?.lowercased() == "fn")
+    }
     static var requiredGranted: Bool {
         requiredGranted(microphone: microphone, accessibility: accessibility, inputMonitoring: inputMonitoring)
     }

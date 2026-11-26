@@ -6,7 +6,7 @@ import Foundation
 struct ModelPrice: Codable, Equatable, Sendable {
     var prompt: Double            // US$ per input token; per second of audio for transcription models
     var completion: Double        // US$ per output token
-    var transcription = false     // a speech-to-text model, priced by audio time
+    var transcription = false     // a speech-to-text model: per second of audio when it has no output price, else per token
 }
 
 // One catalogue entry with what the pickers need: price, whether it writes text or
@@ -61,11 +61,20 @@ enum ModelCosts {
         return (value as? NSNumber)?.doubleValue
     }
 
-    // Short enough for a picker: "$0.10/hour", "$0.15 / $0.60 per M tokens", "free".
+    // The dearest per-second speech rate believed (US$ per hour of audio); the catalogue's
+    // most expensive real per-second model is under $1/hour.
+    static let maxHourlySpeechRate = 36.0
+
+    // Short enough for a picker: "$0.10/hour", "$0.15 / $0.60 per M tokens", "free", "rate unclear".
     static func label(_ price: ModelPrice?) -> String? {
         guard let price else { return nil }
         if price.prompt == 0 && price.completion == 0 { return "free" }
-        if price.transcription { return "\(money(price.prompt * 3600))/hour" }
+        // A transcription model is priced per second of audio only when it has no output price
+        // and a plausible rate; token-priced audio reads like a text model, and a figure that
+        // would mean more than $36/hour is in some other unit the catalogue does not state.
+        if price.transcription && price.completion == 0 {
+            return price.prompt * 3600 > maxHourlySpeechRate ? "rate unclear" : "\(money(price.prompt * 3600))/hour"
+        }
         return "\(money(price.prompt * 1_000_000)) / \(money(price.completion * 1_000_000)) per M tokens"
     }
 

@@ -89,3 +89,20 @@ import CursusCore
     #expect(MadeByMyKoala.url.host == "mykoala.com.au")
     #expect(MadeByMyKoala.url.scheme == "https")
 }
+
+// A paste the field confirmed reads as inserted, and the readback check tolerates reflowed whitespace.
+@Test func aConfirmedPasteReadsAsInserted() {
+    #expect(PillDisplay.result([.recognized, .copied, .pasteSentUnconfirmed, .pasteConfirmed], onDevice: false) == .done("Inserted"))
+    let text = "What's trending in tech today?"
+    #expect(NativeContext.landed(before: "Ask: ", after: "Ask: What's trending\n in  tech today?", text: text))
+    #expect(!NativeContext.landed(before: "", after: "What's trending", text: text))
+    #expect(!NativeContext.landed(before: "", after: "anything", text: "   "))
+}
+
+// Words already in the field are not proof the paste landed.
+@Test func textAlreadyInTheFieldDoesNotConfirmAPaste() {
+    let text = "Hello world"
+    #expect(!NativeContext.landed(before: "Hello world", after: "Hello world", text: text))
+    #expect(!NativeContext.landed(before: "Hello  world and more", after: "Hello world and more", text: text))
+    #expect(NativeContext.landed(before: "Hello world. ", after: "Hello world. Hello world", text: text))
+}

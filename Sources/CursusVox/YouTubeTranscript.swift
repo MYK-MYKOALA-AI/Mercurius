@@ -11,7 +11,13 @@ enum YouTubeTranscript {
     // → "Some video" (the leading count is YouTube's unread notifications).
     static func title(fromWindow title: String) -> String {
         var name = title
-        if let range = name.range(of: " - YouTube") { name = String(name[..<range.lowerBound]) }
+        // The site's own suffix: " - YouTube" at the end or before another " - " segment (tab state, browser).
+        var search = name.endIndex
+        while let range = name.range(of: " - YouTube", options: .backwards, range: name.startIndex..<search) {
+            let rest = name[range.upperBound...]
+            if rest.isEmpty || rest.hasPrefix(" - ") { name = String(name[..<range.lowerBound]); break }
+            search = range.lowerBound
+        }
         if let count = name.range(of: #"^\(\d{1,4}\+?\) "#, options: .regularExpression) { name.removeSubrange(count) }
         return name.trimmingCharacters(in: .whitespaces)
     }
