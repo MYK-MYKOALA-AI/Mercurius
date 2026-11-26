@@ -81,7 +81,7 @@ h3 { font-size: 21px; line-height: 1.3; letter-spacing: .01em; }
 .release-grid { align-items: start; }
 .release-grid .install > p, .install .underlined { margin-top: 0; max-width: none; }
 .underlined { display: inline-flex; align-items: center; gap: 32px; min-height: 48px; margin-top: 20px; font-size: 18px; }
-footer { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 96px; font-size: 15px; }
+footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px; min-height: 96px; font-size: 15px; }
 footer a { display: inline-flex; align-items: center; min-height: 44px; }
 .footer-brand { font: 22px var(--serif); text-decoration: none; }
 @media (min-width: 1440px) { .hero { min-height: 760px; } }
@@ -134,9 +134,11 @@ footer a { display: inline-flex; align-items: center; min-height: 44px; }
   nav a { font-size: 16px; }
   footer { display: grid; grid-template-columns: 1fr auto; gap: 0 12px; padding-block: 16px; }
   footer > span { grid-column: 1 / -1; grid-row: 2; }
+  footer .visits-note { grid-column: 1 / -1; grid-row: 3; margin: 10px 0 4px; }
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 @media (forced-colors: active) {
   .brand img, .hero-art > img { filter: none; mix-blend-mode: normal; }
   .nav, .hero-baseline, .features article, .processing-grid, .tiny-mark, .button { border: 1px solid CanvasText; }
 }
+.visits-note { flex: 1 0 100%; order: 3; margin: -28px 0 22px; font-size: 13px; line-height: 1.5; opacity: .85; }
