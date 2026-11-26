@@ -69,16 +69,16 @@ import CursusCore
     // The panel's content, hosted in an offscreen window so it can be drawn.
     let home = HomePanel()
     home.showDictationKey(fn: true)
-    home.savedDictionary = { (terms: ["Vercel", "Tessah"], replacements: ["vassal": "Vercel"]) }
+    home.savedDictionary = { (terms: ["Vercel", "Maelah"], replacements: ["vassal": "Vercel"]) }
     home.dropTakeBacks.state = .on
     home.takeBackPhrases = { TakeBack.defaults + ["no weight"] }
     home.suggestions = { [.init(term: "Riverton", count: 5), .init(term: "Kora", count: 3)] }
-    home.update(history: [HistoryEntry(text: "Send Sam the build notes before lunch.", at: Date(),
+    home.update(history: [HistoryEntry(text: "Send Jordan the build notes before lunch.", at: Date(),
                                        detail: "Grok · 2.1 s · cleaned 0.3 s"),
                           HistoryEntry(text: "Deploy the Supabase migration then ping me on Telegram.", at: Date(),
                                        raw: "Deploy the super base migration then um ping me on telegram.",
                                        detail: "Grok · 1.9 s · cleaned 0.4 s")])
-    home.update(history: [HistoryEntry(text: "Send Sam the build notes before lunch.", at: Date(),
+    home.update(history: [HistoryEntry(text: "Send Jordan the build notes before lunch.", at: Date(),
                                        detail: "Grok · 2.1 s · cleaned 0.3 s",
                                        costs: "grok-stt-1.0 $0.00058 · gpt-oss-120b $0.000041"),
                           HistoryEntry(text: "Deploy the Supabase migration then ping me on Telegram.", at: Date(),
@@ -105,7 +105,7 @@ import CursusCore
     store.add(clip: ClipDraft(title: "Ship it Friday: how we release every week without drama", properties: [
         .init(name: "source", kind: .text, value: "https://notes.example.com/ship")], body: String(repeating: "word ", count: 900)),
         source: "Comet", now: now.addingTimeInterval(-20 * 60))
-    store.add(dictation: "Send Sam the build notes before lunch.", at: now.addingTimeInterval(-90))
+    store.add(dictation: "Send Jordan the build notes before lunch.", at: now.addingTimeInterval(-90))
     home.clipboardItems = { store.items }
     home.clipboardProblem = { nil }
     let host = NSWindow(contentRect: NSRect(origin: .zero, size: HomePanel.size), styleMask: [.borderless],

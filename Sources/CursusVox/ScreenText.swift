@@ -16,7 +16,7 @@ enum ScreenText {
             switch self {
             case .permission: return "Allow Mercurius in System Settings › Privacy & Security › Accessibility, then try again."
             case .protectedContent: return "This window or focused field is protected. Switch to ordinary content and try again."
-            // Not a fault Sam can fix by clicking: the app itself is one CursusVox never reads.
+            // Not a fault the user can fix by clicking: the app itself is one CursusVox never reads.
             case .excludedApplication: return "Mercurius doesn't read this app's window (a password app, the login window, the Dock or a remote session). Switch to another window and try again."
             case .unavailableWindow: return "The app's front window could not be identified. Click its window, then try again."
             case .unsupportedInterface: return "The app did not provide the Accessibility interface needed for a safe capture."
@@ -326,7 +326,7 @@ actor ScreenReader {
         guard !Task.isCancelled else { throw .cancelled }
         let admitted = admission(pid: pid, requiringFront: false)
         // Say which refusal it was: "this window is protected" for an app CursusVox never reads
-        // left Sam guessing which app or which field was the problem (2026-11-01).
+        // left the user guessing which app or which field was the problem (2026-11-01).
         if admitted != .allowed {
             Self.clipLog.info("capture refused at admission: \(String(describing: admitted), privacy: .public)")
             switch admitted {

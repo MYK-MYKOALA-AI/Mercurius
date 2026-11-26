@@ -31,7 +31,7 @@ struct HistoryEntry: Equatable {
     enum Page: Int { case home, dictionary, takeBacks, settings, clipboard }
     static let size = NSSize(width: 432, height: 650)
     static let contentWidth: CGFloat = 400   // size.width minus the 16 pt margins
-    // The prompt Sam pastes into ChatGPT or Claude, which know how he writes.
+    // The prompt the user pastes into ChatGPT or Claude, which know how they write.
     static let aiPrompt = """
         List the names, places, products, companies, slang and technical terms I use often that a \
         speech-to-text engine would likely mishear. One per line. Where it's often misheard, write \

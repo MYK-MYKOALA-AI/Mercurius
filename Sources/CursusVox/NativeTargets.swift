@@ -2,7 +2,7 @@ import ApplicationServices
 import CursusCore
 
 enum NativeTargets {
-    // Sam 2026-10-12: paste into any app, as Wispr Flow does. Excluded apps are
+    // Paste into any app, as Wispr Flow does. Excluded apps are
     // ones where Cmd-V acts on files or the system rather than inserting text.
     private static let excluded: Set<String> = [
         "com.apple.finder", "com.apple.loginwindow", "com.apple.dock", "com.apple.systemuiserver"
@@ -21,7 +21,7 @@ enum NativeTargets {
     // Element identity used when an app exposes no focused AX element.
     static let appLevelElement = "app-level"
 
-    // Sam 2026-10-12: paste into whatever field is focused. A field whose subrole
+    // Paste into whatever field is focused. A field whose subrole
     // can't be read still pastes; password fields are refused by the secure event
     // input check, which every macOS and browser password field turns on.
     static func classify(bundleID: String?, name: String? = nil, role: String?, subrole: String?) -> Classification {

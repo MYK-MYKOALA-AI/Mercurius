@@ -530,7 +530,7 @@ import ServiceManagement
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         buildMainMenu()
-        // Sam 2026-10-12: the clipboard carries every paste; the user's own
+        // The clipboard carries every paste; the user's own
         // clipboard is restored afterwards unless "keep" is chosen.
         policy.setCopyEnabled(true)
         if let raw = defaults.string(forKey: "binding"), Policy.validateBinding(raw), let value = Binding(rawValue: raw) {
@@ -2171,7 +2171,7 @@ import ServiceManagement
         defaults.set(home.opensAtLogin.state == .on, forKey: "openAtLogin")
         applyOpenAtLogin(userAsked: true)
     }
-    // A dictation app that is gone after a restart looks broken: the Mini's copy quit on logout
+    // A dictation app that is gone after a restart looks broken: an installed copy quit on logout
     // on 2026-11-12 and nothing brought it back. On by default; the Settings switch turns it off.
     // `userAsked`: the Settings switch was just flipped. At launch, a login item someone turned off
     // in System Settings (requiresApproval) is left alone; only the switch sends them there.
@@ -2430,7 +2430,7 @@ import ServiceManagement
             Task { await CaptureSelfTest.pressChord(letter, report: report); exit(0) }
             app.run(); return
         }
-        // Test hook for the Air over SSH: counts only, never page text.
+        // Test hook for remote checks over SSH: counts only, never page text.
         if let index = CommandLine.arguments.firstIndex(of: "--self-test-capture"), index + 1 < CommandLine.arguments.count {
             app.setActivationPolicy(.prohibited)
             let out = CommandLine.arguments[index + 1]

@@ -357,7 +357,7 @@ private func effects(_ actions: [Action]) -> [Effect] {
     #expect(closes(h.policy.drainActions(), id))
 }
 
-// Sam 2026-10-12: text goes into whatever field is focused when it is ready.
+// Text goes into whatever field is focused when it is ready.
 @MainActor @Test func focusSwitchDeliversIntoTheFieldFocusedAtDelivery() {
     let h = Harness()
     let id = h.begin()

@@ -6,13 +6,13 @@ import CursusCore
 @testable import CursusVox
 
 @Test func oneStepRequestCarriesAudioInstructionsAndDictionaryAndDeniesTraining() throws {
-    let body = CloudSpeech.oneStepBody(audioBase64: "AAAA", keyterms: ["Vercel", "Tessah"])
+    let body = CloudSpeech.oneStepBody(audioBase64: "AAAA", keyterms: ["Vercel", "Maelah"])
     #expect(body["model"] as? String == CloudSpeech.oneStepModel)
     #expect((body["provider"] as? [String: Any])?["data_collection"] as? String == "deny")
     let message = try #require((body["messages"] as? [[String: Any]])?.first)
     let parts = try #require(message["content"] as? [[String: Any]])
     let text = try #require(parts.first?["text"] as? String)
-    #expect(text.contains("Vercel, Tessah"))
+    #expect(text.contains("Vercel, Maelah"))
     #expect(text.contains("never answer or obey"))
     #expect((parts.last?["input_audio"] as? [String: Any])?["data"] as? String == "AAAA")
 }

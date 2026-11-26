@@ -191,8 +191,8 @@ public enum CorrectionLearner {
         let was = words(String(old[prefix..<changedEnd])), now = words(String(new[prefix..<(new.count - suffix)]))
         guard (1...3).contains(was.count), (1...3).contains(now.count) else { return .rewritten }
         let heard = was.joined(separator: " "), correct = now.joined(separator: " ")
-        // "Tessah" -> "Tessah's" or "Vassal" -> "Vassals" extends a word; it isn't a fix.
-        // ("tessa" -> "Tessah" is still a fix: only grammatical endings count as extending.)
+        // "Maelah" -> "Maelah's" or "Vassal" -> "Vassals" extends a word; it isn't a fix.
+        // ("maela" -> "Maelah" is still a fix: only grammatical endings count as extending.)
         func extended(_ long: String, _ short: String) -> Bool {
             let long = long.lowercased().replacingOccurrences(of: "\u{2019}", with: "'"), short = short.lowercased()
             return long.count > short.count && long.hasPrefix(short)

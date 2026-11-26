@@ -1,4 +1,5 @@
 import importlib.util
+import os
 from pathlib import Path
 import tempfile
 import struct
@@ -33,6 +34,31 @@ class PublicBoundary(unittest.TestCase):
             linked.symlink_to(source)
             self.assertEqual(check.inspect(root, 'Sources/linked.swift'), [('symlink', 0)])
             self.assertEqual(check.inspect(root, '../outside'), [('unsafe-path', 0)])
+
+    def test_rejects_dated_person_notes_and_private_terms(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'Sources/example.swift'
+            source.parent.mkdir()
+            source.write_text('// ' + 'Robin 2026-01-02: paste into the focused field.\n')
+            self.assertEqual(check.inspect(root, 'Sources/example.swift'), [('dated-person-note', 1)])
+            source.write_text('// Measured 2026-01-02: paste into the focused field.\nlet x = "Pat Example"\n')
+            self.assertEqual(check.inspect(root, 'Sources/example.swift'), [])
+            listed = root / 'terms.txt'
+            listed.write_text('# maintainer words\n\npat example\nzz-machine\n')
+            old = os.environ.get('MERCURIUS_PRIVATE_TERMS')
+            os.environ['MERCURIUS_PRIVATE_TERMS'] = str(listed)
+            try:
+                terms = check.private_terms()
+            finally:
+                if old is None:
+                    os.environ.pop('MERCURIUS_PRIVATE_TERMS')
+                else:
+                    os.environ['MERCURIUS_PRIVATE_TERMS'] = old
+            self.assertEqual(len(terms), 2)
+            self.assertEqual(check.inspect(root, 'Sources/example.swift', terms), [('private-term', 2)])
+            source.write_text('let x = "Patexample, zz-machines"\n')
+            self.assertEqual(check.inspect(root, 'Sources/example.swift', terms), [])
 
     def test_document_fixtures_require_synthetic_identifiers(self):
         with tempfile.TemporaryDirectory() as directory:

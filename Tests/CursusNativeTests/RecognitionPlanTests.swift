@@ -1,7 +1,7 @@
 import Testing
 @testable import CursusVox
 
-// Sam 2026-10-12: Grok is the default; on-device Apple speech is the backup.
+// Grok is the default; on-device Apple speech is the backup.
 @Test func cloudFirstFallsBackToOnDeviceWhenItIsReady() {
     #expect(RecognitionPlan.engines(selected: .cloud, cloudKey: true, appleReady: true) == [.cloud, .apple])
     #expect(RecognitionPlan.engines(selected: .cloud, cloudKey: true, appleReady: false) == [.cloud])

@@ -588,7 +588,7 @@ struct PillVisibility: Equatable, CustomStringConvertible {
             words.frame = NSRect(x: Self.bubblePadding.left, y: bubbleSize.height - Self.bubblePadding.top - size.height,
                                  width: Self.textWidth, height: size.height)
         }
-        // The bubble sits to Koa's right, just above the capsule, so it never covers him (Sam 2026-11-13).
+        // The bubble sits to Koa's right, just above the capsule, so it never covers him.
         // The panel keeps room for it on both sides, so the capsule stays centred and never jumps when words appear.
         overhang = max(0, Self.koaBeside + Self.bubbleMaxWidth - capsuleWidth)
         let width = capsuleWidth + 2 * overhang

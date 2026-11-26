@@ -34,7 +34,7 @@ import CursusCore
                 }
                 let code = event.getIntegerValueField(.keyboardEventKeycode)
                 // Fn is tracked from its own flag changes: a letter pressed while Fn is held doesn't
-                // always carry the Fn flag itself (Sam, 2026-10-13: fn+W did nothing on the Air).
+                // always carry the Fn flag itself (fn+W did nothing on a test Mac without it).
                 if type == .flagsChanged {
                     let down = event.flags.contains(.maskSecondaryFn)
                     if down != owner.fnDown { PillTrace.log.notice("fn \(down ? "down" : "up", privacy: .public)") }

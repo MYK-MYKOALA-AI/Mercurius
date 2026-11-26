@@ -58,7 +58,7 @@ public enum TakeBack {
     // phrase set off by a pause, then something said instead. The dropped words
     // stay inside one sentence, apart from the stop right before the phrase
     // ("Friday? No, I mean Saturday."). The aligner may keep the first copy of
-    // repeated words ("send it to Tessah, scratch that, send it to Sam" keeps the
+    // repeated words ("send it to Maelah, scratch that, send it to Jordan" keeps the
     // first "send it to"); the same edit read with the second copy kept is tried too.
     static func isTakeBack(_ run: Range<Int>, in raw: [TranscriptCleanup.Token], phrases: [String]) -> Bool {
         let spoken = raw.map(\.word)

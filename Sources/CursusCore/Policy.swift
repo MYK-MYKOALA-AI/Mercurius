@@ -423,7 +423,7 @@ import Foundation
         case .manualCopy: return false
         }
     }
-    // Sam 2026-10-12: deliver into whatever eligible field is focused when the
+    // Deliver into whatever eligible field is focused when the
     // text is ready, as Wispr Flow does. Focus or caret moves no longer block it.
     private func automaticEligible(_ value: Context) -> Bool {
         guard session != nil, let current = value.destination, current.qualified,

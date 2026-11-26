@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Check tracked/unignored publication files without printing matched secret values."""
+import os
 import re
 import struct
 import subprocess
@@ -20,6 +21,7 @@ RULES = {
     'slack-token': rb'\bxox[baprs]-[A-Za-z0-9-]{15,}',
     'personal-home-path': rb'/Users/[A-Za-z0-9._-]{2,}/|/home/[A-Za-z0-9._-]{2,}/',
     'internal-ticket': rb'\bMYK-[0-9]+',
+    'dated-person-note': rb'//[ \t]*(?![A-Z][a-z]*ed\b)[A-Z][a-z]+,? \(?[0-9]{4}-[0-9]{2}-[0-9]{2}',
     'literal-credential': rb'(?i)(?:api[_-]?key|password|secret)\s*[:=]\s*[\x22\x27][A-Za-z0-9_/-]{24,}[\x22\x27]',
 }
 
@@ -81,7 +83,17 @@ def metadata_present(data, depth=0, atoms=False):
     return False
 
 
-def inspect(root, relative):
+def private_terms():
+    """Maintainer-only words (names, machines) from a file kept outside the repository."""
+    location = os.environ.get('MERCURIUS_PRIVATE_TERMS')
+    if not location:
+        return []
+    lines = Path(location).read_text(encoding='utf-8').splitlines()
+    return [re.compile(rb'(?i)(?<![A-Za-z0-9])' + re.escape(line.strip().encode()) + rb'(?![A-Za-z0-9])')
+            for line in lines if line.strip() and not line.lstrip().startswith('#')]
+
+
+def inspect(root, relative, terms=()):
     path = Path(relative)
     if path.is_absolute() or '..' in path.parts or not path.parts:
         return [('unsafe-path', 0)]
@@ -102,6 +114,7 @@ def inspect(root, relative):
     data = source.read_bytes()
     found = [(name, data[:m.start()].count(b'\n') + 1)
              for name, pattern in RULES.items() for m in re.finditer(pattern, data)]
+    found += [('private-term', data[:m.start()].count(b'\n') + 1) for term in terms for m in term.finditer(data)]
     if path.name.endswith('Tests.swift'):
         for match in re.finditer(rb'\b(?:let|var)\s+(?:id|documentID|docID|spreadsheetID|presentationID)\s*=\s*"([A-Za-z0-9_-]{25,})"', data):
             value = match.group(1)
@@ -119,10 +132,12 @@ def main():
     paths = sorted(set(result.stdout.decode().rstrip('\0').split('\0')) - {''})
     if not paths:
         raise SystemExit('No publication files found; refusing an empty scan.')
-    findings = [(path, rule, line) for path in paths for rule, line in inspect(root, path)]
+    terms = private_terms()
+    findings = [(path, rule, line) for path in paths for rule, line in inspect(root, path, terms)]
     for path, rule, line in findings:
         print(f'{path}:{line}: {rule}')
-    print(f'Checked {len(paths)} publication files; {len(findings)} findings. Matched values are never printed.')
+    scope = f' and {len(terms)} private terms' if terms else ''
+    print(f'Checked {len(paths)} publication files{scope}; {len(findings)} findings. Matched values are never printed.')
     return int(bool(findings))
 
 

@@ -8,7 +8,7 @@ private let existing = Vocabulary(terms: ["Supabase", "Grok"], replacements: ["s
     let answer = """
     Here are the terms:
     1. Vercel
-    - **Tessah**
+    - **Maelah**
     • Riverton (suburb)
     * vassal → Vercel
     2) kora -> Kora
@@ -16,7 +16,7 @@ private let existing = Vocabulary(terms: ["Supabase", "Grok"], replacements: ["s
     superlongnamethatgoesonandonandonandonandonandonandonandon
     """
     let result = DictionaryImport.parse(answer, existing: existing)
-    #expect(result.newTerms == ["Vercel", "Tessah", "Riverton", "Kora"])
+    #expect(result.newTerms == ["Vercel", "Maelah", "Riverton", "Kora"])
     #expect(result.newReplacements.map(\.from) == ["vassal", "kora"])
     #expect(result.newReplacements.map(\.to) == ["Vercel", "Kora"])
     #expect(result.alreadyHave == ["Supabase"])
@@ -26,8 +26,8 @@ private let existing = Vocabulary(terms: ["Supabase", "Grok"], replacements: ["s
 }
 
 @Test func importSplitsCommaListsAndDeduplicates() {
-    let result = DictionaryImport.parse("Vercel, Comet, vercel,  ,Tessah", existing: existing)
-    #expect(result.newTerms == ["Vercel", "Comet", "Tessah"])
+    let result = DictionaryImport.parse("Vercel, Comet, vercel,  ,Maelah", existing: existing)
+    #expect(result.newTerms == ["Vercel", "Comet", "Maelah"])
 }
 
 @Test func importStopsAtTheTermLimit() {
@@ -76,8 +76,8 @@ private func compare(_ before: String, _ pasted: String, _ now: String,
     #expect(compare("Notes: Deploy it on Vassal tonight.", "Deploy it on Vassal tonight.",
                     "Notes: Deploy it on Vercel tonight.")
             == .learned(.init(heard: "Vassal", correct: "Vercel", addsReplacement: false)))   // "vassal" is a real word
-    #expect(compare("ping tessa about it", "ping tessa about it", "ping Tessah about it")
-            == .learned(.init(heard: "tessa", correct: "Tessah", addsReplacement: true)))
+    #expect(compare("ping maela about it", "ping maela about it", "ping Maelah about it")
+            == .learned(.init(heard: "maela", correct: "Maelah", addsReplacement: true)))
     #expect(compare("push it to github today", "push it to github today", "push it to GitHub today")
             == .learned(.init(heard: "github", correct: "GitHub", addsReplacement: false)))
 }
@@ -121,11 +121,11 @@ private func compare(_ before: String, _ pasted: String, _ now: String,
 }
 
 @Test func namesSaidThreeTimesInADayAreSuggested() {
-    let day = ["Ping Tessah about the Vercel deploy.", "Vercel is down again.", "Ask Tessah to check Vercel.",
-               "The deploy is fine.", "The team is fine. The end.", "Tessah said yes.", "Grok works, Grok works, Grok."]
+    let day = ["Ping Maelah about the Vercel deploy.", "Vercel is down again.", "Ask Maelah to check Vercel.",
+               "The deploy is fine.", "The team is fine. The end.", "Maelah said yes.", "Grok works, Grok works, Grok."]
     let common: Set = ["the", "ask", "ping"]
     let suggestions = RepeatedTerms.suggest(day, existing: existing, isCommonWord: { common.contains($0.lowercased()) })
-    #expect(suggestions == [.init(term: "Tessah", count: 3), .init(term: "Vercel", count: 3)])
+    #expect(suggestions == [.init(term: "Maelah", count: 3), .init(term: "Vercel", count: 3)])
 }
 
 @Test func codeAndKnownWordsAreNeverSuggested() {
@@ -147,8 +147,8 @@ private func compare(_ before: String, _ pasted: String, _ now: String,
 }
 
 @Test func extendingAWordIsNotAFix() {
-    // Haiku r2: "Tessah" -> "Tessah's" must not rewrite every later "Tessah".
-    #expect(compare("ping Tessah about it", "ping Tessah about it", "ping Tessah's about it") == .rewritten)
+    // Haiku r2: "Maelah" -> "Maelah's" must not rewrite every later "Maelah".
+    #expect(compare("ping Maelah about it", "ping Maelah about it", "ping Maelah's about it") == .rewritten)
     #expect(compare("ship to Vassal", "ship to Vassal", "ship to Vassals") == .rewritten)
 }
 
@@ -161,9 +161,9 @@ private func compare(_ before: String, _ pasted: String, _ now: String,
 
 @Test func savingAnEditKeepsWordsAddedMeanwhile() {
     let builtIn = Vocabulary(terms: Vocabulary.seed)
-    let shown = "Vercel\nTessah"
-    // While the user edits (deleting Tessah, adding Kora), a learned word arrives.
-    let saved = (terms: ["Vercel", "Tessah", "Riverton"], replacements: ["vassal": "Vercel"])
+    let shown = "Vercel\nMaelah"
+    // While the user edits (deleting Maelah, adding Kora), a learned word arrives.
+    let saved = (terms: ["Vercel", "Maelah", "Riverton"], replacements: ["vassal": "Vercel"])
     let updated = DictionaryImport.applyEdit(from: shown, to: "Vercel\nKora", builtIn: builtIn, saved: saved)
     #expect(updated?.terms == ["Vercel", "Riverton", "Kora"])
     #expect(updated?.replacements == ["vassal": "Vercel"])
@@ -184,26 +184,26 @@ private func compare(_ before: String, _ pasted: String, _ now: String,
 
 @Test func namesOutliveTheTextTheyCameFrom() {
     #expect(RepeatedTerms.textLifetime == 600)
-    #expect(RepeatedTerms.names(in: "Ping Tessah about the Vercel deploy, OK?") == ["Ping", "Tessah", "Vercel"])
+    #expect(RepeatedTerms.names(in: "Ping Maelah about the Vercel deploy, OK?") == ["Ping", "Maelah", "Vercel"])
     #expect(RepeatedTerms.names(in: "run `make` in Vercel").isEmpty)
-    let seen = [["Tessah", "Vercel"], ["Vercel"], ["Tessah", "Vercel"], ["Tessah"]]
+    let seen = [["Maelah", "Vercel"], ["Vercel"], ["Maelah", "Vercel"], ["Maelah"]]
     #expect(RepeatedTerms.suggest(names: seen, existing: Vocabulary(terms: []))
-            == [.init(term: "Tessah", count: 3), .init(term: "Vercel", count: 3)])
+            == [.init(term: "Maelah", count: 3), .init(term: "Vercel", count: 3)])
 }
 
 @Test func savingRespellsATermAndNeverRevertsALearnedPair() {
     let builtIn = Vocabulary(terms: [])
-    let shown = "tezza → Tessa\nvercel"
-    // Learned meanwhile: the pair now points to "Tessah".
-    let saved = (terms: ["vercel", "Tessa", "Tessah"], replacements: ["tezza": "Tessah"])
-    let result = DictionaryImport.applyEdit(from: shown, to: "tezza → Tessa\nVercel", builtIn: builtIn, saved: saved)
-    #expect(result?.replacements["tezza"] == "Tessah")
+    let shown = "maezza → Maela\nvercel"
+    // Learned meanwhile: the pair now points to "Maelah".
+    let saved = (terms: ["vercel", "Maela", "Maelah"], replacements: ["maezza": "Maelah"])
+    let result = DictionaryImport.applyEdit(from: shown, to: "maezza → Maela\nVercel", builtIn: builtIn, saved: saved)
+    #expect(result?.replacements["maezza"] == "Maelah")
     #expect(result?.terms.contains("Vercel") == true)
     #expect(result?.terms.contains("vercel") == false)
 }
 
 @Test func soundAlikeAndMultiWordFixesAreLearned() {
-    // Sam 2026-10-18: fixes with a different first letter or several words were dropped.
+    // Fixes with a different first letter or several words were dropped.
     #expect(compare("ask Catie to join", "ask Catie to join", "ask Katie to join")
             == .learned(.init(heard: "Catie", correct: "Katie", addsReplacement: true)))
     #expect(compare("we use super base now", "we use super base now", "we use Supabase now")
@@ -253,10 +253,10 @@ private func compare(_ before: String, _ pasted: String, _ now: String,
 }
 
 @Test func namesSaidOftenAreAddedOnceAndNotAgainAfterRemoval() {
-    let seen = [["Tessah"], ["Tessah", "Vercel"], ["Tessah"], ["Vercel"]]
-    #expect(RepeatedTerms.autoAdd(names: seen, existing: existing, added: []) == ["Tessah"])
-    #expect(RepeatedTerms.autoAdd(names: seen, existing: existing, added: ["tessah"]).isEmpty)
-    #expect(RepeatedTerms.autoAdd(names: seen, existing: existing, added: [], isCommonWord: { $0 == "Tessah" }).isEmpty)
+    let seen = [["Maelah"], ["Maelah", "Vercel"], ["Maelah"], ["Vercel"]]
+    #expect(RepeatedTerms.autoAdd(names: seen, existing: existing, added: []) == ["Maelah"])
+    #expect(RepeatedTerms.autoAdd(names: seen, existing: existing, added: ["maelah"]).isEmpty)
+    #expect(RepeatedTerms.autoAdd(names: seen, existing: existing, added: [], isCommonWord: { $0 == "Maelah" }).isEmpty)
 }
 
 @Test func dictionarySupportsMultiwordNamesAndApostrophes() {

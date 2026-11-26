@@ -1,7 +1,7 @@
 import AppKit
 import CoreGraphics
 
-// Which app Sam is actually in when a capture shortcut arrives.
+// Which app the user is actually in when a capture shortcut arrives.
 //
 // NSWorkspace.shared.frontmostApplication is the obvious choice and the wrong one here: a press
 // comes in through the event tap while CursusVox is not the active app, and that property can

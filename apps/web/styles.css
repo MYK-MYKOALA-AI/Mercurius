@@ -72,6 +72,13 @@ h3 { font-size: 21px; line-height: 1.3; letter-spacing: .01em; }
 .release .eyebrow { padding-top: 8px; }
 .release h2 { font-size: clamp(30px, 3.4vw, 46px); }
 .release h2 + p { margin-top: 24px; max-width: 400px; font-size: 18px; line-height: 1.6; }
+.release-grid > div > p { margin-top: 24px; max-width: 440px; font-size: 18px; line-height: 1.6; }
+.install { display: grid; gap: 22px; align-content: start; font-size: 17px; line-height: 1.6; }
+.needs { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; }
+.install pre { margin: 0; padding: 18px 20px; overflow-x: auto; background: #f4eee014; border: 1px solid #f4eee040; color: var(--cream); font: 14px/1.7 ui-monospace, "SF Mono", Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.install pre:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+.release-grid { align-items: start; }
+.release-grid .install > p, .install .underlined { margin-top: 0; max-width: none; }
 .underlined { display: inline-flex; align-items: center; gap: 32px; min-height: 48px; margin-top: 20px; font-size: 18px; }
 footer { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 96px; font-size: 15px; }
 footer a { display: inline-flex; align-items: center; min-height: 44px; }
@@ -121,6 +128,9 @@ footer a { display: inline-flex; align-items: center; min-height: 44px; }
   .processing h2 { margin-top: 18px; }
   .release { padding-block: 40px; }
   .release-grid { gap: 20px; }
+  .install pre { font-size: 13px; padding: 14px 16px; }
+  nav { gap: 14px; }
+  nav a { font-size: 16px; }
   footer { display: grid; grid-template-columns: 1fr auto; gap: 0 12px; padding-block: 16px; }
   footer > span { grid-column: 1 / -1; grid-row: 2; }
 }

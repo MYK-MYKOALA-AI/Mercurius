@@ -7,11 +7,11 @@ private let off = Vocabulary(terms: [])
 @Test func takenBackWordsMayBeDropped() {
     let cases = [
         ("Can you book a meeting for Friday? No, I mean Saturday.", "Can you book a meeting for Saturday?"),
-        ("Send it to Tessah, scratch that, send it to Sam.", "Send it to Sam."),
+        ("Send it to Maelah, scratch that, send it to Jordan.", "Send it to Jordan."),
         ("It costs 30, no wait, 40 dollars.", "It costs 40 dollars."),
         ("Meet at the cafe, no weight, at the office.", "Meet at the office."),
         ("Call me Tuesday, oops, Wednesday.", "Call me Wednesday."),
-        // Sam, 2026-10-13: a whole sentence taken back, the phrase stuttered.
+        // A whole sentence taken back, the phrase stuttered.
         ("So I was thinking we should book a meeting for Friday. No wait, wait, wait. How about we book it for Saturday?",
          "How about we book it for Saturday?"),
     ]
@@ -25,7 +25,7 @@ private let off = Vocabulary(terms: [])
 @Test func takeBacksNeverCoverOtherEdits() {
     let refused = [
         // No phrase: an ordinary "no" or "sorry" is not a take-back.
-        ("Sam, sorry, I'm late.", "I'm late."),
+        ("Jordan, sorry, I'm late.", "I'm late."),
         ("Friday, no, Saturday.", "Saturday."),
         // The phrase must be set off by a pause, not part of a sentence.
         ("That is what I meant yesterday.", "Yesterday."),
@@ -72,7 +72,7 @@ private let off = Vocabulary(terms: [])
     for (raw, out) in refused {
         #expect(TranscriptCleanup.judge(raw: raw, output: out, vocabulary: vocabulary) != .accepted, "\(raw)")
     }
-    // Sam, 2026-10-13: "Monday, no, no, no, Tuesday."
+    // "Monday, no, no, no, Tuesday."
     #expect(TranscriptCleanup.judge(raw: "Monday, no, no, no, Tuesday.", output: "Tuesday.", vocabulary: vocabulary) == .accepted)
     #expect(TranscriptCleanup.judge(raw: "Call me Tuesday, oops, Wednesday.", output: "Call me Wednesday.",
                                     vocabulary: vocabulary) == .accepted)

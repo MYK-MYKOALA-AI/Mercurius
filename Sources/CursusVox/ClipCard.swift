@@ -4,9 +4,9 @@ import QuartzCore
 // The fn+W review card: a dark floating card near the top right of the screen, like the
 // Obsidian Web Clipper's popup. It appears at once while the page is read, then shows the note
 // to adjust: title, properties, body (preview or Markdown) and folder. Nothing is saved or
-// copied until a button says so. It stays over the app Sam is working in until Esc, its close
+// copied until a button says so. It stays over the app the user is working in until Esc, its close
 // button or a finished action closes it; the draft stays in the main clipboard as unsaved.
-// It never activates CursusVox, so the browser or editor Sam clipped stays in front.
+// It never activates CursusVox, so the browser or editor the user clipped stays in front.
 @MainActor final class ClipCardPanel: NSPanel {
     var onKey: ((NSEvent) -> Bool)?
     var onEscape: (() -> Void)?
@@ -460,7 +460,7 @@ import QuartzCore
             }
         })
     }
-    // The card is not a popover: it stays over whichever app is front while Sam reads or edits
+    // The card is not a popover: it stays over whichever app is front while the user reads or edits
     // it (2026-11-01). Esc, its close button or a finished save/copy closes it. The old
     // resign-key dismissal and `.transient` collection behaviour made it vanish a moment after
     // it appeared, because CursusVox is never the active app when a clip starts.

@@ -50,7 +50,7 @@ private final class FixtureEditor: TextInsertionPort {
         #expect(moved.mutations == 0)
     }
     @Test func fieldsWithoutReadableSecurityMetadataStillPaste() {
-        // Sam 2026-10-12: password fields are refused by the secure event input
+        // Password fields are refused by the secure event input
         // check at snapshot and at the Cmd-V post, not by reading the subrole.
         let classification = NativeTargets.classify(bundleID: "owned.fixture", role: kAXTextFieldRole, subrole: nil)
         #expect(classification == .normal)
@@ -157,7 +157,7 @@ private final class FixtureEditor: TextInsertionPort {
 }
 
 @MainActor @Test func anyOrdinaryAppPastesItsReadableFocusedElement() {
-    // Sam 2026-10-12: paste into any app, terminals included (paste never sends Enter).
+    // Paste into any app, terminals included (paste never sends Enter).
     for bundle in ["synthetic.unknown-app", "com.apple.Terminal", "com.tinyspeck.slackmacgap",
                    "com.apple.TextEdit", "ai.perplexity.comet"] {
         for role in [kAXTextFieldRole, kAXTextAreaRole, "AXWebArea", kAXButtonRole, nil] {

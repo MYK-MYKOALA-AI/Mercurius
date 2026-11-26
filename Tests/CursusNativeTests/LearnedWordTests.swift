@@ -4,16 +4,16 @@ import CursusCore
 
 @Test func aLearnedFixAddsTheReplacementAndTheTerm() {
     let saved = LearnedWord.apply(.init(heard: "Vassal", correct: "Vercel"),
-                                  to: (terms: ["Tessah"], replacements: [:]), builtIn: Vocabulary.seed)
+                                  to: (terms: ["Maelah"], replacements: [:]), builtIn: Vocabulary.seed)
     #expect(saved.replacements == ["vassal": "Vercel"])
-    #expect(saved.terms == ["Tessah", "Vercel"])
+    #expect(saved.terms == ["Maelah", "Vercel"])
 }
 
 @Test func aCaseFixUpdatesTheSpellingWithoutAReplacement() {
-    let saved = LearnedWord.apply(.init(heard: "tessah", correct: "Tessah"),
-                                  to: (terms: ["tessah"], replacements: [:]), builtIn: Vocabulary.seed)
+    let saved = LearnedWord.apply(.init(heard: "maelah", correct: "Maelah"),
+                                  to: (terms: ["maelah"], replacements: [:]), builtIn: Vocabulary.seed)
     #expect(saved.replacements.isEmpty)
-    #expect(saved.terms == ["Tessah"])
+    #expect(saved.terms == ["Maelah"])
 }
 
 @Test func aFullDictionaryStillLearnsTheReplacement() {

@@ -4,8 +4,8 @@ import Testing
 
 @Test func snippetsPreserveFormattingAndRequireExplicitCompleteCue() throws {
     var book = SnippetBook()
-    try book.save(Snippet(cue: "My reply", text: "Hello\n\nThanks, Sam"), dictionary: [])
-    #expect(book.expand(" MY  REPLY ") == "Hello\n\nThanks, Sam")
+    try book.save(Snippet(cue: "My reply", text: "Hello\n\nThanks, Jordan"), dictionary: [])
+    #expect(book.expand(" MY  REPLY ") == "Hello\n\nThanks, Jordan")
     #expect(book.expand("use my reply now") == nil)
     #expect(throws: SnippetBook.Problem.duplicateCue) { try book.save(Snippet(cue: "my reply", text: "Other"), dictionary: []) }
     #expect(throws: SnippetBook.Problem.dictionaryConflict) { try book.save(Snippet(cue: "CursusVox", text: "Other"), dictionary: ["cursusvox"]) }

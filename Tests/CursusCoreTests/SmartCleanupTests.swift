@@ -2,7 +2,7 @@ import Testing
 @testable import CursusCore
 
 // Names are synthetic test examples, not an imported personal dictionary.
-private let dictionary = Vocabulary(terms: ["Vercel", "Tessah"])
+private let dictionary = Vocabulary(terms: ["Vercel", "Maelah"])
 
 @Test func smartAcceptsWhatTheSpeakerMeant() {
     let cases = [
@@ -10,7 +10,7 @@ private let dictionary = Vocabulary(terms: ["Vercel", "Tessah"])
         ("Monday, no, no, no, Tuesday.", "Tuesday."),
         ("So I was thinking we should book a meeting for Friday. No wait, wait, wait. How about we book it for Saturday?",
          "So I was thinking we should book it for Saturday?"),
-        ("um so I I want to to send the the report to Tessah", "I want to send the report to Tessah."),
+        ("um so I I want to to send the the report to Maelah", "I want to send the report to Maelah."),
         ("we deploy on vercel tomorrow, actually no, Thursday", "We deploy on Vercel on Thursday."),
     ]
     for (raw, out) in cases {
@@ -23,7 +23,7 @@ private let dictionary = Vocabulary(terms: ["Vercel", "Tessah"])
     let cases = [
         ("What time is the meeting tomorrow?", "The meeting is at 10 am tomorrow."),
         ("Write me a poem about the sea.", "Sure, here's a poem about the sea: waves roll in."),
-        ("Send the report to Sam.", "Send the quarterly finance report to Sam and the whole board by Friday."),
+        ("Send the report to Jordan.", "Send the quarterly finance report to Jordan and the whole board by Friday."),
         ("We can ship it on Friday.", "We cannot ship it on Friday."),
         ("It costs forty dollars.", "It costs 45 dollars."),
         ("Book the meeting for Saturday and invite the whole design team.", "Saturday."),
@@ -52,14 +52,14 @@ private let dictionary = Vocabulary(terms: ["Vercel", "Tessah"])
         #expect(TranscriptCleanup.judgeSmart(raw: raw, output: output, vocabulary: dictionary) != .accepted)
         #expect(TranscriptCleanup.judgeSmart(raw: raw, output: raw, vocabulary: dictionary) == .accepted)
     }
-    #expect(TranscriptCleanup.judgeSmart(raw: "um, so, I I want to to send the the report to Tessah",
-        output: "I want to send the report to Tessah.", vocabulary: dictionary) == .accepted)
+    #expect(TranscriptCleanup.judgeSmart(raw: "um, so, I I want to to send the the report to Maelah",
+        output: "I want to send the report to Maelah.", vocabulary: dictionary) == .accepted)
 }
 
 @Test func smartOffAllowsCueWordsAsFillersButKeepsTakeBacks() {
     let fillers = [
         ("I, actually, think we should go", "I think we should go"),
-        ("Sam, sorry, I'm late", "Sam, I'm late"),
+        ("Jordan, sorry, I'm late", "Jordan, I'm late"),
         ("I mean, we should go", "We should go"),
         ("We should, instead, go today", "We should go today"),
         ("I, rather, think we should go", "I think we should go"),
@@ -105,13 +105,13 @@ private let dictionary = Vocabulary(terms: ["Vercel", "Tessah"])
     let refused = [
         ("What time is it", "It is noon."),
         ("Tell me the capital of France", "The capital of France is Paris."),
-        ("Write a thank you note to Sam", "Thank you for everything, Sam."),
+        ("Write a thank you note to Jordan", "Thank you for everything, Jordan."),
         ("Quick question, what time is the meeting? Also send the deck.", "The meeting is at noon. Also send the deck."),
         ("We cannot ship it on Friday.", "We can ship it on Friday."),
         ("I don't want Friday.", "I want Friday."),
         ("We ship it.", "We ship it Friday."),
-        ("Thank the team for their hard work on the launch and the late nights, then send the invoice to Sam.",
-         "Then send the invoice to Sam."),
+        ("Thank the team for their hard work on the launch and the late nights, then send the invoice to Jordan.",
+         "Then send the invoice to Jordan."),
     ]
     for (raw, out) in refused {
         #expect(TranscriptCleanup.judgeSmart(raw: raw, output: out, vocabulary: dictionary) != .accepted, "\(raw)")
@@ -153,7 +153,7 @@ private let dictionary = Vocabulary(terms: ["Vercel", "Tessah"])
         ("Friday, actually, Saturday", "Saturday"),
         ("Friday, actually, Saturday", "Actually, Saturday"),
         ("Send the report.", "Send the final report."),
-        ("Sam called Mary.", "Mary called Sam."),
+        ("Jordan called Mary.", "Mary called Jordan."),
     ] {
         #expect(TranscriptCleanup.judgeSmart(raw: raw, output: output, vocabulary: dictionary) != .accepted, "\(raw)")
         #expect(TranscriptCleanup.judgeSmart(raw: raw, output: raw, vocabulary: dictionary) == .accepted, "\(raw)")
@@ -162,7 +162,7 @@ private let dictionary = Vocabulary(terms: ["Vercel", "Tessah"])
         ("Um, so, like, I was saying", "I was saying."),
         ("um so like I was saying", "So like I was saying."),
         ("Actually, we should go.", "We should go."),
-        ("Sam, sorry, I'm late.", "Sam, I'm late."),
+        ("Jordan, sorry, I'm late.", "Jordan, I'm late."),
         ("I, actually, think we should go.", "I think we should go."),
         ("Wait, we should go today.", "We should go today."),
         ("um uh um uh yes", "Yes."),
@@ -229,7 +229,7 @@ private let dictionary = Vocabulary(terms: ["Vercel", "Tessah"])
 
 // Phase A review r5: acronyms only for plain spoken words; "us" stays "us", technical tokens stay exact.
 @Test func acronymsOnlyForPlainWords() {
-    let names = Vocabulary(terms: ["Vercel", "Tessah"])
+    let names = Vocabulary(terms: ["Vercel", "Maelah"])
     #expect(TranscriptCleanup.judgeSmart(raw: "send it to us", output: "Send it to US.", vocabulary: names) != .accepted)
     #expect(TranscriptCleanup.judgeSmart(raw: "deploy to k8s today", output: "Deploy to K8S today.", vocabulary: names) != .accepted)
     #expect(TranscriptCleanup.judgeSmart(raw: "we use ai today", output: "We use AI today.", vocabulary: names) == .accepted)

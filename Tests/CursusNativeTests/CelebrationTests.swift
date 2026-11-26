@@ -30,7 +30,7 @@ import Testing
     #expect(Celebration.extraCells(for: .failure).isEmpty)
 }
 
-// Sam 2026-11-13: a punchy pop that ends with the popup, with a shockwave ring and sparkles.
+// A punchy pop that ends with the popup, with a shockwave ring and sparkles.
 @MainActor @Test func theBurstIsShortAndEndsWithThePopup() {
     #expect(Celebration.duration <= 1.4 && Celebration.burst <= 0.1)
     let cells = Celebration.cells(for: .success) + Celebration.extraCells(for: .success)
@@ -48,7 +48,7 @@ import Testing
     #expect(celebration.ring.animation(forKey: "shockwave") == nil)
     celebration.play(.success, koa: NSPoint(x: 400, y: 100))
     #expect(celebration.ring.animation(forKey: "shockwave") != nil)
-    // Sam 2026-11-13 "the confetti isn't stopping": the pour is a timed Core Animation burst over a
+    // "the confetti isn't stopping": the pour is a timed Core Animation burst over a
     // zero model rate, so it ends without the main actor (it used to wait for a Task).
     #expect(celebration.burstLength == Celebration.burst)
     celebration.stop()

@@ -4,7 +4,7 @@
 
 **Free, open-source dictation for your Mac. Bring your own keys.**
 
-Mercurius is a native macOS dictation app from [MyKoala](https://mykoala.com.au/). This repository contains an MIT-licensed source preview, tests, the Koa animation generator and the public website. The app is under active validation. **There is no verified public installer yet.**
+Mercurius is a native macOS dictation app from [MyKoala](https://mykoala.com.au/). This repository contains an MIT-licensed source preview, tests, the Koa animation generator and the public website. The app is under active validation. There is no signed download yet; [install it from source](#install) with one command.
 
 [Website](https://mercurius.mykoala.com.au/) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [MIT code licence](LICENSE)
 
@@ -35,6 +35,20 @@ Each user saves their own keys into macOS Keychain through an explicit Save acti
 
 The public source uses bundle ID `au.com.mykoala.mercurius` and separate Keychain/log/outbox namespaces. It does not read a developer's prototype keys or settings. Internal Swift target/executable names still use CursusVox. Data folders use Mercurius names; there is no automatic migration from the private prototype.
 
+## Install
+
+You need an Apple Silicon Mac on macOS 26 or later, Xcode from the App Store (opened once), and your own Apple Development certificate. A free Apple ID is enough: Xcode › Settings › Accounts › add your Apple ID › Manage Certificates › + › Apple Development.
+
+```sh
+git clone https://github.com/SHAMALKRISHNA/Mercurius.git
+cd Mercurius
+sh scripts/install.sh
+```
+
+[`scripts/install.sh`](scripts/install.sh) finds your one Apple Development certificate, builds the app, signs it with that certificate, copies it to `~/Applications/Mercurius.app` and opens it. Read it before you run it. It reads no API keys and sends nothing anywhere. Running it again updates the app; the previous copy goes to your Trash. If you have several certificates, choose one with `MERCURIUS_SIGNING_IDENTITY=<fingerprint> sh scripts/install.sh`. Set `MERCURIUS_NO_OPEN=1` to skip opening the app.
+
+On first launch, follow setup: allow the microphone and Accessibility, then add your own OpenRouter or ElevenLabs key, or use on-device speech with no key.
+
 ## Build from source
 
 Requirements: an Apple Silicon Mac, macOS 26 or later, a toolchain supporting the Swift 6.2 package manifest, and your own Apple Development or Developer ID Application signing identity for a bundled app. There are no Swift package dependencies.
@@ -47,6 +61,8 @@ python3 Tests/ScriptTests/public_export.test.py
 python3 Tests/ScriptTests/build.test.py
 python3 scripts/check-public.py
 ```
+
+Maintainers can also pass a private word list (names, machine names) that must never be published: `MERCURIUS_PRIVATE_TERMS=/path/outside/the/repo.txt python3 scripts/check-public.py`. Keep that file out of the repository.
 
 To build a local app, set `MERCURIUS_SIGNING_IDENTITY` to your own identity and run:
 

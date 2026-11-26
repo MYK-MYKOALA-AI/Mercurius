@@ -6,7 +6,7 @@ public enum Quality {
         "The next appointment is on Tuesday at ten thirty in the morning.",
         "I will bring three notebooks two pens and a bottle of water.",
         "Our project needs a clear plan before we start building the new app.",
-        "Sam and Alex will review the first version together on Friday afternoon.",
+        "Jordan and Alex will review the first version together on Friday afternoon.",
         "Open the settings page and check that the microphone permission is enabled.",
         "The total price is twenty five dollars and delivery costs five dollars.",
         "This sentence should end with a full stop and the next begins here.",

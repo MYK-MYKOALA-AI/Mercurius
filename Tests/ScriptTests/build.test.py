@@ -19,6 +19,7 @@ class BuildBoundary(unittest.TestCase):
         root = parent / 'source'
         (root / 'scripts').mkdir(parents=True)
         shutil.copyfile(REPO / 'scripts/build-app.sh', root / 'scripts/build-app.sh')
+        shutil.copyfile(REPO / 'scripts/install.sh', root / 'scripts/install.sh')
         (root / 'Resources/Koa').mkdir(parents=True)
         (root / '.gitignore').write_text('dist/\n')
         (root / 'Package.swift').write_text('// synthetic manifest fixture')
@@ -33,14 +34,19 @@ class BuildBoundary(unittest.TestCase):
             'uname': '#!/bin/sh\nprintf "%s\\n" "$FIXTURE_ARCH"\n',
             'xcrun': '#!/bin/sh\ncase "$*" in *--show-bin-path*) printf "%s\\n" "$FIXTURE_BIN";; esac\n',
             'plutil': '#!/bin/sh\nexit 0\n',
-            'codesign': '#!/bin/sh\nexit 0\n',
+            'codesign': '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FIXTURE_LOG"\n',
+            'sw_vers': '#!/bin/sh\nprintf "%s\\n" "${FIXTURE_MACOS:-26.1}"\n',
+            'security': '#!/bin/sh\nprintf "%s" "$FIXTURE_IDENTITIES"\n',
+            'pgrep': '#!/bin/sh\nexit 1\n',
+            'open': '#!/bin/sh\nprintf "open %s\\n" "$*" >> "$FIXTURE_LOG"\n',
         }.items():
             path = tools / name
             path.write_text(text)
             path.chmod(0o755)
         env = {'PATH': str(tools) + os.pathsep + os.environ['PATH'], 'HOME': os.environ['HOME'],
                'FIXTURE_BIN': str(tools), 'FIXTURE_ARCH': 'arm64',
-               'MERCURIUS_SIGNING_IDENTITY': 'Fixture identity'}
+               'MERCURIUS_SIGNING_IDENTITY': 'Fixture identity', 'FIXTURE_LOG': str(parent / 'log'),
+               'FIXTURE_IDENTITIES': ''}
         return root, env
 
     def test_source_archive_and_git_clone_have_honest_source_stamps(self):
@@ -92,6 +98,46 @@ class BuildBoundary(unittest.TestCase):
                             'intel': b'Requires an Apple Silicon Mac.'}
                 self.assertIn(expected[invalid], result.stderr)
                 self.assertFalse((root / 'dist').exists())
+
+    def test_install_finds_one_own_identity_and_trashes_only_the_old_copy(self):
+        dev = 'A' * 40
+        one = f'  1) {dev} "Apple Development: Fixture Person (TEAM000001)"\n     1 valid identities found\n'
+        two = one + f'  2) {"B" * 40} "Apple Development: Fixture Other (TEAM000002)"\n'
+        for case in ['one', 'none', 'two', 'explicit', 'old-macos']:
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
+                parent = Path(directory)
+                root, env = self.fixture(parent)
+                home = parent / 'home'
+                (home / 'Applications/Mercurius.app').mkdir(parents=True)
+                (home / 'Applications/Mercurius.app/old').write_text('previous build')
+                (home / 'Applications/Other.app').mkdir()
+                env['HOME'] = str(home)
+                if case != 'explicit':
+                    env.pop('MERCURIUS_SIGNING_IDENTITY')
+                env['FIXTURE_IDENTITIES'] = {'one': one, 'two': two}.get(case, '')
+                if case == 'old-macos':
+                    env['FIXTURE_MACOS'] = '15.6'
+                result = subprocess.run(['sh', 'scripts/install.sh'], cwd=root, env=env, capture_output=True, text=True)
+                log = (parent / 'log').read_text() if (parent / 'log').exists() else ''
+                if case in ['one', 'explicit']:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    installed = home / 'Applications/Mercurius.app'
+                    self.assertTrue((installed / 'Contents/MacOS/CursusVox').is_file())
+                    self.assertFalse((installed / 'old').exists())
+                    trashed = list((home / '.Trash').glob('Mercurius *.app'))
+                    self.assertEqual(len(trashed), 1)
+                    self.assertEqual((trashed[0] / 'old').read_text(), 'previous build')
+                    self.assertTrue((home / 'Applications/Other.app').is_dir())
+                    self.assertIn('--sign ' + (dev if case == 'one' else 'Fixture identity'), log)
+                    self.assertIn('open ' + str(installed), log)
+                    self.assertEqual(list((root / 'dist').iterdir()), [])
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    expected = {'none': 'Manage Certificates', 'two': 'more than one Apple Development',
+                                'old-macos': 'macOS 26 or later'}[case]
+                    self.assertIn(expected, result.stderr)
+                    self.assertTrue((home / 'Applications/Mercurius.app/old').exists())
+                    self.assertNotIn('--sign', log)
 
 
 if __name__ == '__main__':

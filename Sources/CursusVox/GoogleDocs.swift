@@ -1,7 +1,7 @@
 import AppKit
 
 // Google Docs, Slides and Sheets draw their content on a canvas, so Accessibility sees mostly menus
-// and toolbars (84 words measured on the Air) unless Docs' screen-reader mode is on. fn+W and fn+T
+// and toolbars (84 words measured on a test Mac) unless Docs' screen-reader mode is on. fn+W and fn+T
 // therefore ask Docs for the file itself: its own export address, opened in the browser the page is
 // in, so the download uses that browser's Google sign-in and CursusVox never holds a Google
 // credential. The browser saves the file to Downloads; CursusVox reads it once and moves it to the Trash.

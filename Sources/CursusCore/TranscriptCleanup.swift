@@ -175,7 +175,7 @@ public enum TranscriptCleanup {
     //   - a take-back: at most eight words, then one of the user's take-back
     //     phrases set off by a pause, then what they said instead (TakeBack).
     // Other self-corrections ("three, no, four") are kept: by shape alone they
-    // can't be told from "Sam, sorry, I'm late". Outside a take-back, digits,
+    // can't be told from "Jordan, sorry, I'm late". Outside a take-back, digits,
     // signs and negations are never removed.
     // Anything else keeps the rule-cleaned text.
     // removeOnly: dotted and path words in a sentence count as prose (isCodeShaped); they keep their
@@ -219,7 +219,7 @@ public enum TranscriptCleanup {
         return .accepted
     }
 
-    // Smart mode (Sam, 2026-10-13: "as long as it gets it correct"): the model may reword
+    // Smart mode: the model may reword
     // to keep what the speaker meant, merging a correction into the sentence. It is still
     // refused when it does something no cleanup does:
     //   - answers or obeys the text (a question no longer a question, "Sure, here's…"),
@@ -285,7 +285,7 @@ public enum TranscriptCleanup {
                     && preservesWords(Array(unchanged.dropFirst()), output: out, terms: vocabulary.cleanupTerms, identities: vocabulary.terms))
             return aligned ? .accepted : .rejected("dropped words")
         }
-        // Sam 2026-10-13: with take-backs on, Smart may delete real words;
+        // With take-backs on, Smart may delete real words;
         // sound-alike Dictionary swaps of real words are allowed. The model judges from context.
         let content = raw.filter { !fillers.contains($0) }
         if out.count > raw.count + 2 { return .rejected("added words") }

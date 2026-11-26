@@ -189,7 +189,7 @@ private let rules = "Can you open CursusVox and check the Grok transcription acc
         #expect(outcome.model == nil)
         #expect(outcome.text == spoken)
     }
-    // Strict mode only: Smart may merge clauses, which is the trade-off Sam chose (2026-10-13).
+    // Strict mode only: Smart may merge clauses, which is the chosen trade-off.
     @Test func modelWideningANegationIsNotUsed() async {
         let spoken = "Do not\u{2014}ever go, go away."
         ChatFixture.replies = ["Do not\u{2014}ever go away.", "Do not\u{2014}ever go away."]; ChatFixture.delay = 0

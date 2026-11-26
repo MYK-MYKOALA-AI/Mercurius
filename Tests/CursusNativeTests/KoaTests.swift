@@ -72,7 +72,7 @@ private let counts: [KoaClip: Int] = [.popIn: 12, .listenCalm: 48, .listenLoud: 
     #expect(RecordingPill.mood(.failed("Couldn't paste — click to copy last, or open Clipboard")) == .oops)
 }
 
-// Sam 2026-11-13: a paste is a quick "✓ Inserted" and gone in about a second; the transcript stays in Activity.
+// A paste is a quick "✓ Inserted" and gone in about a second; the transcript stays in Activity.
 @MainActor @Test func aPasteSaysInsertedWithoutTheTranscriptAndLeavesInASecond() {
     let pill = RecordingPill()
     pill.reduceMotion = { true }
@@ -181,7 +181,7 @@ private let counts: [KoaClip: Int] = [.popIn: 12, .listenCalm: 48, .listenLoud: 
     let first = pill.bubbleFrame
     pill.preview(settled: String(repeating: "more words ", count: 30), volatile: "now")
     #expect(pill.bubbleFrame == first)
-    // Beside Koa, not on top of him (Sam 2026-11-13): right of his head, above the capsule.
+    // Beside Koa, not on top of him: right of his head, above the capsule.
     #expect(pill.bubbleFrame.minX >= pill.capsuleFrame.minX + RecordingPill.koaBeside)
     #expect(pill.bubbleFrame.minY > pill.capsuleFrame.maxY)
     #expect(pill.bubbleFrame.minY < pill.capsuleFrame.maxY + RecordingPill.koaOverflow)

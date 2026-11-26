@@ -29,8 +29,8 @@ private let id = "synthetic-document-0000000000000001"
     @Test func accountNamedInTheQueryCarriesOver() {
         #expect(GoogleDocs.export(for: "https://docs.google.com/document/d/\(id)/edit?authuser=2")?.url.absoluteString
                 == "https://docs.google.com/document/d/\(id)/export?format=md&authuser=2")
-        #expect(GoogleDocs.export(for: "https://docs.google.com/document/d/\(id)/edit?authuser=sam%40example.com")?.url.absoluteString
-                == "https://docs.google.com/document/d/\(id)/export?format=md&authuser=sam%40example.com")
+        #expect(GoogleDocs.export(for: "https://docs.google.com/document/d/\(id)/edit?authuser=jordan%40example.com")?.url.absoluteString
+                == "https://docs.google.com/document/d/\(id)/export?format=md&authuser=jordan%40example.com")
         #expect(GoogleDocs.export(for: "https://docs.google.com/presentation/d/\(id)/edit?authuser=1")?.url.absoluteString
                 == "https://docs.google.com/presentation/d/\(id)/export/txt?authuser=1")
         // Anything that could add a parameter or fragment is dropped.
@@ -78,7 +78,7 @@ private func stamp(_ url: URL, from source: String) {
     let data = try! PropertyListSerialization.data(fromPropertyList: [source], format: .binary, options: 0)
     _ = data.withUnsafeBytes { setxattr(url.path, DocsExport.whereFroms, $0.baseAddress, data.count, 0, 0) }
 }
-// Stand-in for the Trash in tests: the file just goes, so the Mini's real Trash isn't filled.
+// Stand-in for the Trash in tests: the file just goes, so the real Trash isn't filled.
 private let binned: @Sendable (URL) -> Bool = { (try? FileManager.default.removeItem(at: $0)) != nil }
 private let served = "https://doc-0o-6g-docstext.googleusercontent.com/export/abc/def/1791896275000/1/2/\(id)?format=md&dat=x"
 
