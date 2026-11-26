@@ -52,9 +52,9 @@ enum PillDisplay {
     static func result(_ outcomes: [Outcome], onDevice: Bool, noTextField: Bool = false,
                        grokOff: Bool = false, transcript: String? = nil, cleanup: CleanupOutcome? = nil,
                        recoveryGeneration: UInt64? = nil, controllerGeneration: UInt64? = nil) -> PillContent? {
-        let pasted: [Outcome] = [.pasteSentUnconfirmed, .insertedConfirmed, .insertedUnconfirmed]
+        let pasted: [Outcome] = [.pasteSentUnconfirmed, .pasteConfirmed, .insertedConfirmed, .insertedUnconfirmed]
         if outcomes.contains(where: pasted.contains) {
-            let submission = outcomes.contains(.insertedConfirmed) ? "Inserted"
+            let submission = outcomes.contains(.insertedConfirmed) || outcomes.contains(.pasteConfirmed) ? "Inserted"
                 : outcomes.contains(.insertedUnconfirmed) ? "Insertion sent · check editor" : "Paste sent · check editor"
             let base = onDevice
                 ? submission + (grokOff ? " · on-device, Grok is off (click the menu icon)" : " · on-device")

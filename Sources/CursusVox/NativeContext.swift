@@ -83,6 +83,56 @@ actor NativeContext {
         return FieldHandle(element: focusedField)
     }
 
+    // What the delivered field held just before Cmd-V, so a readback can tell a landed paste
+    // from words that were already there. Never logged; cleared on every new paste.
+    private var pasteBaseline: (field: AXUIElement, value: String)?
+    static let baselineLimit = 256 * 1024
+
+    // The field's text, read once and only when the field is freshly the focused one and is
+    // classified as not secure. nil when any of that cannot be established (fail closed).
+    private func readableValue(_ field: AXUIElement, window: AXUIElement, _ deadline: ObservationDeadline) -> String? {
+        guard AXIsProcessTrusted(), !IsSecureEventInputEnabled() else { return nil }
+        guard AXTextPort(field: field, window: window, deadline: deadline).isFocused else { return nil }
+        guard let role = attribute(field, kAXRoleAttribute, deadline) as? String,
+              role != kAXSecureTextFieldSubrole as String else { return nil }
+        let (status, subrole) = readAttribute(field, kAXSubroleAttribute, deadline)
+        switch status {
+        case .success:
+            guard let subrole = subrole as? String, subrole != kAXSecureTextFieldSubrole as String else { return nil }
+        case .attributeUnsupported, .noValue: break   // ordinary fields often have no subrole
+        default: return nil                            // can't tell: fail closed
+        }
+        // A huge document is never pulled over AX just to confirm a paste. Editors that don't report
+        // a length are read and then held to the same limit.
+        let (counted, count) = readAttribute(field, kAXNumberOfCharactersAttribute, deadline)
+        switch counted {
+        case .success: guard let count = count as? Int, count >= 0, count <= Self.baselineLimit else { return nil }
+        case .attributeUnsupported, .noValue: break
+        default: return nil
+        }
+        guard let value = attribute(field, kAXValueAttribute, deadline) as? String,
+              value.utf16.count <= Self.baselineLimit, !IsSecureEventInputEnabled() else { return nil }
+        return value
+    }
+
+    // After a blind Cmd-V: true only when the same field, freshly focused and not secure, now holds
+    // one more copy of the pasted text than it did just before the paste. No baseline, an unreadable
+    // or secure field, or focus elsewhere all stay unconfirmed.
+    func pasteLanded(_ target: Destination, text: String) -> Bool {
+        defer { pasteBaseline = nil }
+        guard let baseline = pasteBaseline, let field = deliveredField(target)?.element, CFEqual(field, baseline.field),
+              let window = focusedWindow, let after = readableValue(field, window: window, ObservationDeadline()) else { return false }
+        return Self.landed(before: baseline.value, after: after, text: text)
+    }
+    // Whitespace-insensitive, since editors reflow pasted line breaks and spaces.
+    nonisolated static func landed(before: String, after: String, text: String) -> Bool {
+        func squeeze(_ s: String) -> String { s.split(whereSeparator: \.isWhitespace).joined(separator: " ") }
+        let needle = squeeze(text)
+        guard !needle.isEmpty else { return false }
+        func copies(_ s: String) -> Int { squeeze(s).components(separatedBy: needle).count - 1 }
+        return copies(after) > copies(before)
+    }
+
     // The text cursor of the last observed field, in AX screen coordinates (top-left origin), so the
     // popup can sit beside it. nil for password fields, without AX trust, or when nothing is known.
     func caretRect() -> CGRect? {
@@ -289,7 +339,7 @@ actor NativeContext {
     func close() {
         closed = true; notifications.set(nil); detach(ObservationDeadline())
         identities.removeAll(); focusedField = nil; focusedWindow = nil; ownedClipboardCounter = nil
-        restoreSnapshot = nil
+        restoreSnapshot = nil; pasteBaseline = nil
     }
     func perform(_ effect: Effect, permit: EffectPermit) async -> EffectResult {
         guard !closed, permit.valid else { return .failed("Delivery admission canceled or expired") }
@@ -359,9 +409,16 @@ actor NativeContext {
                   let owned = ownedClipboardCounter, CGPreflightPostEventAccess() else {
                 return .failed("Paste destination or clipboard ownership changed")
             }
+            // The baseline read comes first, so the focus check below is the last AX look before Cmd-V.
+            pasteBaseline = nil
+            if !appLevel, let field = focusedField, let window = focusedWindow,
+               let value = readableValue(field, window: window, ObservationDeadline()) {
+                pasteBaseline = (field, value)
+            }
             if !appLevel {
                 guard let field = focusedField, let window = focusedWindow,
                       AXTextPort(field: field, window: window, deadline: ObservationDeadline()).isFocused else {
+                    pasteBaseline = nil
                     return .failed("Focused field changed before paste")
                 }
             }
@@ -381,6 +438,7 @@ actor NativeContext {
                 down.post(tap: .cghidEventTap); up.post(tap: .cghidEventTap)
                 return true
             }()
+            if !sent { pasteBaseline = nil }
             return sent ? .pasteSent : .failed("Paste layout, focus or ownership changed before submission")
         }
     }

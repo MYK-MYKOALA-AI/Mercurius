@@ -102,3 +102,115 @@ import Foundation
     await work.value
     #expect(retained == 0 && copied == 0 && !permit.valid)
 }
+
+// A clip is named after the page, not the browser window's title bar
+// ("… - YouTube - Audio playing - Comet" became the note's title and file name).
+@Test func clipTitleDropsBrowserAndTabStateSuffixes() {
+    func title(_ window: String, url: String?, app: String?) -> String {
+        ScreenText.Capture(title: window, url: url, blocks: [.line("words")]).note(site: app).title
+    }
+    #expect(title("[1hr Talk] Intro to Large Language Models - YouTube - Audio playing - Comet",
+                  url: "https://www.youtube.com/watch?v=zjkBMFhNj_g", app: "Comet") == "[1hr Talk] Intro to Large Language Models")
+    #expect(title("Mercury (mythology) - Wikipedia - Comet", url: "https://en.wikipedia.org/wiki/Mercury_(mythology)",
+                  app: "Comet") == "Mercury (mythology) - Wikipedia")
+    #expect(title("Pricing - Audio muted - Google Chrome", url: "https://example.com", app: "Google Chrome") == "Pricing")
+    #expect(title("Shopping List", url: nil, app: "Notes") == "Shopping List")
+    // Only the trailing " - YouTube" is the site's; a title may contain the words itself.
+    #expect(title("Best of 2026 - YouTube Rewind - YouTube - Comet", url: "https://youtu.be/zjkBMFhNj_g",
+                  app: "Comet") == "Best of 2026 - YouTube Rewind")
+    // An app name alone is not stripped down to nothing.
+    #expect(title("Comet", url: nil, app: "Comet") == "Comet")
+}
+
+// A page clip starts at the page's content. Seen on the real AX trees of YouTube, Perplexity and
+// Wikipedia in Comet: banner ("AU", "Sign in"), search, navigation and complementary (sidebar) landmarks
+// sit around one main landmark, and the clip used to open with them.
+@MainActor private func pageWalk(_ roles: [String], subroles: [String?], children: [[Int]], texts: [Int: String],
+                                 page: Bool = true) -> [ScreenText.Block] {
+    let nodes = roles.indices.map { AXUIElementCreateApplication(pid_t($0 + 1)) }
+    var walker = ScreenReader.Walker(deadline: Date().addingTimeInterval(1), readAttribute: { element, name in
+        let index = nodes.firstIndex { CFEqual($0, element) }!
+        switch name {
+        case "AXRole": return .init(value: roles[index], status: .success)
+        case "AXSubrole": return .init(value: subroles[index], status: subroles[index] == nil ? .noValue : .success)
+        case "AXChildren": return .init(value: children[index].map { nodes[$0] }, status: .success)
+        case "AXValue": return .init(value: texts[index], status: texts[index] == nil ? .noValue : .success)
+        default: return .init(value: nil, status: .attributeUnsupported)
+        }
+    }, secureInput: { false })
+    if page { walker.walkPage(nodes[0]) } else { walker.walk(nodes[0]) }
+    return walker.blocks
+}
+
+@MainActor @Test func pageClipReadsTheMainLandmarkWithoutItsSidebars() {
+    let long = Array(repeating: "word", count: 30).joined(separator: " ")
+    //  0 web: 1 banner(2 "Sign in"), 3 nav(4 "Home Library"), 5 main(6 heading(7 "Title"), 8 body, 9 aside(10 "Related"))
+    let blocks = pageWalk(["AXWebArea", "AXGroup", "AXStaticText", "AXGroup", "AXStaticText", "AXGroup", "AXHeading",
+                           "AXStaticText", "AXStaticText", "AXGroup", "AXStaticText"],
+                          subroles: [nil, "AXLandmarkBanner", nil, "AXLandmarkNavigation", nil, "AXLandmarkMain", nil, nil, nil,
+                                     "AXLandmarkComplementary", nil],
+                          children: [[1, 3, 5], [2], [], [4], [], [6, 8, 9], [7], [], [], [10], []],
+                          texts: [2: "Sign in", 4: "Home Library", 7: "Title", 8: long, 10: "Related"])
+    #expect(blocks == [.heading("Title"), .line(long)])
+}
+
+@MainActor @Test func pageWithoutAMainLandmarkStillSkipsNavigation() {
+    let long = Array(repeating: "word", count: 30).joined(separator: " ")
+    let blocks = pageWalk(["AXWebArea", "AXGroup", "AXStaticText", "AXGroup", "AXStaticText"],
+                          subroles: [nil, "AXLandmarkNavigation", nil, nil, nil],
+                          children: [[1, 3], [2], [], [4], []], texts: [2: "New Automations Artifacts", 4: long])
+    #expect(blocks == [.line(long)])
+}
+
+@MainActor @Test func nearlyEmptyMainFallsBackToTheWholePage() {
+    let long = Array(repeating: "word", count: 30).joined(separator: " ")
+    // A page whose main landmark holds only a loading label keeps the rest of its readable content.
+    let blocks = pageWalk(["AXWebArea", "AXGroup", "AXStaticText", "AXGroup", "AXStaticText"],
+                          subroles: [nil, "AXLandmarkMain", nil, nil, nil],
+                          children: [[1, 3], [2], [], [4], []], texts: [2: "Loading", 4: long])
+    #expect(blocks == [.line("Loading"), .line(long)])
+}
+
+// On a big page with no main landmark, the search for one must leave time to read the page.
+@MainActor @Test func mainLandmarkSearchLeavesTimeForTheWholePage() {
+    let count = 3000
+    let nodes = (0...count).map { AXUIElementCreateApplication(pid_t($0 + 1)) }
+    var walker = ScreenReader.Walker(deadline: Date().addingTimeInterval(1), readAttribute: { element, name in
+        usleep(500)  // a slow page: half a millisecond per Accessibility read
+        var pid: pid_t = 0
+        AXUIElementGetPid(element, &pid)
+        let index = Int(pid) - 1
+        switch name {
+        case "AXRole": return .init(value: index == 0 ? "AXWebArea" : "AXStaticText", status: .success)
+        case "AXChildren": return .init(value: index == 0 ? Array(nodes.dropFirst()) : [], status: .success)
+        case "AXValue": return .init(value: "line \(index)", status: .success)
+        default: return .init(value: nil, status: .noValue)
+        }
+    }, secureInput: { false })
+    walker.walkPage(nodes[0])
+    #expect(!walker.blocks.isEmpty)
+}
+
+// A node that fails to read while looking for main doesn't mark a clean main clip partial.
+@MainActor @Test func aReadErrorWhileFindingMainIsNotAPartialClip() {
+    let long = Array(repeating: "word", count: 30).joined(separator: " ")
+    // 0 web: 1 flaky ad group, 2 main(3 text)
+    let nodes = (0..<4).map { AXUIElementCreateApplication(pid_t($0 + 1)) }
+    var walker = ScreenReader.Walker(deadline: Date().addingTimeInterval(1), readAttribute: { element, name in
+        var pid: pid_t = 0
+        AXUIElementGetPid(element, &pid)
+        let index = Int(pid) - 1
+        switch (index, name) {
+        case (1, _): return .init(value: nil, status: .cannotComplete)
+        case (_, "AXRole"): return .init(value: ["AXWebArea", "AXGroup", "AXGroup", "AXStaticText"][index], status: .success)
+        case (2, "AXSubrole"): return .init(value: "AXLandmarkMain", status: .success)
+        case (0, "AXChildren"): return .init(value: [nodes[1], nodes[2]], status: .success)
+        case (2, "AXChildren"): return .init(value: [nodes[3]], status: .success)
+        case (3, "AXValue"): return .init(value: long, status: .success)
+        default: return .init(value: nil, status: .noValue)
+        }
+    }, secureInput: { false })
+    walker.walkPage(nodes[0])
+    #expect(walker.blocks == [.line(long)])
+    #expect(!walker.partial && !walker.readFailed)
+}

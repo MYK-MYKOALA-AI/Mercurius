@@ -189,3 +189,44 @@ private final class CatalogFixture: URLProtocol, @unchecked Sendable {
     home.refreshPrices()
     #expect(home.cleanupModel.isEnabled)
 }
+
+// OpenRouter lists speech models in three units. Only a per-second audio rate
+// becomes "/hour"; token-priced audio (it has an output price) reads per M tokens, and a figure that
+// would mean more than $36 an hour is not a per-second rate, so it is not dressed up as one.
+@Test func speechPricesKeepTheirUnit() {
+    let speech = Data("""
+    {"data":[
+     {"id":"openai/whisper-large-v3-turbo","pricing":{"prompt":"0.00000333","completion":"0"},
+      "architecture":{"output_modalities":["transcription"]}},
+     {"id":"openai/gpt-4o-mini-transcribe","pricing":{"prompt":"0.00000125","completion":"0.000005"},
+      "architecture":{"output_modalities":["transcription"]}},
+     {"id":"microsoft/mai-transcribe-1.5","pricing":{"prompt":"0.36","completion":"0"},
+      "architecture":{"output_modalities":["transcription"]}},
+     {"id":"microsoft/mai-transcribe-2","pricing":{"prompt":"0.1","completion":"0"},
+      "architecture":{"output_modalities":["transcription"]}}
+    ]}
+    """.utf8)
+    let prices = ModelCosts.parse(speech)
+    #expect(ModelCosts.label(prices["openai/whisper-large-v3-turbo"]) == "$0.012/hour")
+    #expect(ModelCosts.label(prices["openai/gpt-4o-mini-transcribe"]) == "$1.25 / $5.00 per M tokens")
+    #expect(ModelCosts.label(prices["microsoft/mai-transcribe-1.5"]) == "rate unclear")
+    #expect(ModelCosts.label(prices["microsoft/mai-transcribe-2"]) == "rate unclear")
+}
+
+// The "OpenRouter speech" engine item shows the rate of the speech model actually chosen,
+// not the default model's (switching to whisper left it at grok's $0.10/hour).
+@MainActor @Test func engineItemShowsTheChosenSpeechModelsRate() throws {
+    let home = HomePanel()
+    home.price = { id in
+        ["x-ai/grok-stt-2.0": ModelPrice(prompt: 0.0000277777777778, completion: 0, transcription: true),
+         "openai/whisper-large-v3-turbo": ModelPrice(prompt: 0.00000333, completion: 0, transcription: true)][id]
+    }
+    home.updateCatalogue(cleanup: AICleanup.catalog, speech: ["x-ai/grok-stt-2.0", "openai/whisper-large-v3-turbo"])
+    home.engine.selectItem(at: 0)
+    let whisper = try #require(home.speechModel.itemArray.firstIndex {
+        $0.representedObject as? String == "openai/whisper-large-v3-turbo"
+    })
+    home.speechModel.selectItem(at: whisper)
+    home.refreshPrices()
+    #expect(home.engine.itemArray[0].title == "OpenRouter speech · $0.012/hour")
+}

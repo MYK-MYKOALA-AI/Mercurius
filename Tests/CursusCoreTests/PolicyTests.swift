@@ -897,3 +897,40 @@ private actor DeliveryGate {
         #expect(recognized(h.policy.drainActions()) == 0)
     }
 }
+
+// A Cmd-V paste is sent blind, so it starts unconfirmed; when the field is then read and
+// holds the text, the paste is recorded as confirmed. Nothing else can claim a confirmed paste.
+@MainActor @Test func aPasteTheFieldConfirmsIsRecordedAsConfirmed() {
+    let h = Harness()
+    var browser = h.normal; browser.route = .qualifiedClipboard
+    h.final(destination: browser)
+    let owned = Context(destination: browser, clipboardCounter: 100)
+    #expect(h.commit(h.token()!, context: Context(destination: browser, clipboardCounter: 99),
+                     result: .copied(attributableCounter: 100)) != nil)
+    let paste = h.token()!
+    #expect(h.commit(paste, context: owned, result: .pasteSent) == .pasteKey(paste, browser))
+    #expect(h.policy.lastOutcomes.contains(.pasteSentUnconfirmed))
+    _ = h.policy.drainActions()
+    h.policy.confirmPaste(paste.generation)
+    #expect(h.policy.drainActions().contains { if case .outcome(paste.generation, .pasteConfirmed) = $0 { true } else { false } })
+    #expect(h.policy.lastOutcomes.last == .pasteConfirmed)
+    // A generation with no unconfirmed paste is not upgraded.
+    h.policy.confirmPaste(paste.generation &+ 99)
+    #expect(!h.policy.drainActions().contains { if case .outcome(_, .pasteConfirmed) = $0 { true } else { false } })
+}
+
+// A readback that returns after the recovery was cleared confirms nothing.
+@MainActor @Test func aClearedPasteIsNotConfirmedLater() {
+    let h = Harness()
+    var browser = h.normal; browser.route = .qualifiedClipboard
+    h.final(destination: browser)
+    #expect(h.commit(h.token()!, context: Context(destination: browser, clipboardCounter: 99),
+                     result: .copied(attributableCounter: 100)) != nil)
+    let paste = h.token()!
+    #expect(h.commit(paste, context: Context(destination: browser, clipboardCounter: 100), result: .pasteSent) == .pasteKey(paste, browser))
+    h.policy.clear()
+    _ = h.policy.drainActions()
+    h.policy.confirmPaste(paste.generation)
+    #expect(!h.policy.drainActions().contains { if case .outcome(_, .pasteConfirmed) = $0 { true } else { false } })
+    #expect(h.policy.lastOutcomes.last != .pasteConfirmed)
+}

@@ -18,3 +18,13 @@ import Testing
     #expect(!SystemChecks.requiredGranted(microphone: true, accessibility: false, inputMonitoring: true))
     #expect(!SystemChecks.requiredGranted(microphone: true, accessibility: true, inputMonitoring: false))
 }
+
+// Meta's Muse also dictates while Fn is held (its `endo_dictation_key` is "fn"), so every
+// dictation was typed twice on a Mac running both. Muse on another key is no conflict.
+@Test func museDictatingOnFnIsAConflict() {
+    let muse = ["com.apple.finder", "com.meta.endo"]
+    #expect(SystemChecks.museTakesFn(bundleIDs: muse, dictationKey: "fn"))
+    #expect(SystemChecks.museTakesFn(bundleIDs: muse, dictationKey: nil))   // Muse's default key is Fn
+    #expect(!SystemChecks.museTakesFn(bundleIDs: muse, dictationKey: "rightOption"))
+    #expect(!SystemChecks.museTakesFn(bundleIDs: ["com.apple.finder"], dictationKey: "fn"))
+}

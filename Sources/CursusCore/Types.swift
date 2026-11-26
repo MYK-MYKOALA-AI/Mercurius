@@ -151,7 +151,7 @@ public enum EffectResult: Equatable, Sendable {
     case failed(String)
 }
 public enum Outcome: Equatable, Sendable {
-    case recognized, copied, insertedConfirmed, insertedUnconfirmed, pasteSentUnconfirmed, deliveryBlocked
+    case recognized, copied, insertedConfirmed, insertedUnconfirmed, pasteSentUnconfirmed, pasteConfirmed, deliveryBlocked
     public var label: String {
         switch self {
         case .recognized: "Text recognised"
@@ -159,6 +159,7 @@ public enum Outcome: Equatable, Sendable {
         case .insertedConfirmed: "Inserted — readback confirmed"
         case .insertedUnconfirmed: "Insertion submitted — unconfirmed"
         case .pasteSentUnconfirmed: "Paste sent — unconfirmed"
+        case .pasteConfirmed: "Pasted — readback confirmed"
         case .deliveryBlocked: "Delivery blocked"
         }
     }

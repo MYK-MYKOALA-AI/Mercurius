@@ -208,7 +208,7 @@ import ServiceManagement
             guard let seen, seen.textProblem == nil else {
                 // Keep YouTube transcript parity with Fn+W even when accessible page text is empty.
                 if let address, YouTubeTranscript.videoID(address) != nil {
-                    let note = ScreenText.note(title: YouTubeTranscript.title(fromWindow: origin.title), url: address, body: "", site: name)
+                    let note = ScreenText.note(title: ScreenText.pageTitle(origin.title, app: name, url: address), url: address, body: "", site: name)
                     await finishCapture(note, origin: origin, token: token, source: name,
                                         notice: "Accessible page text was unavailable; the note contains the video's transcript only.", autoCopy: true)
                     return
@@ -241,7 +241,7 @@ import ServiceManagement
             let words = text.split(whereSeparator: \.isWhitespace).count
             if let accessibleWords, !ScreenOCR.prefers(ocrWords: words, over: accessibleWords) { return false }
             Self.clipLog.info("window clip from its image: \(words) words")
-            let note = ScreenText.note(title: origin.title, url: ScreenText.clipSource(url: origin.address, bundleID: bundleID), body: text, site: name)
+            let note = ScreenText.note(title: ScreenText.pageTitle(origin.title, app: name, url: origin.address), url: ScreenText.clipSource(url: origin.address, bundleID: bundleID), body: text, site: name)
             await finishCapture(note, origin: origin, token: token, source: name,
                                 notice: "Read from the window as an image: only the visible part is included.", autoCopy: true)
             return true
@@ -920,6 +920,11 @@ import ServiceManagement
                 : "In Keyboard settings set “Press 🌐 key to” to Do Nothing, or macOS also reacts when you hold Fn.",
                 status: free ? .done : .warning, button: free ? nil : "Open Keyboard", action: { SystemChecks.openKeyboard() }))
         }
+        if policy.binding == .fn, SystemChecks.museTakesFn {
+            rows.append(Row(title: "Muse also dictates on Fn",
+                detail: "Change Muse's dictation key in its settings, or quit Muse, or both apps type what you say.",
+                status: .warning, button: nil, action: nil))
+        }
         if SystemChecks.wisprRunning {
             rows.append(Row(title: "Wispr Flow is running",
                 detail: "Quit it or change its shortcut, or both apps will record when you hold the key.",
@@ -1102,7 +1107,7 @@ import ServiceManagement
                 case let .finalizeRequested(id, _): speech.finalize(id)
                 case let .closeAdapters(id): speech.close(id)
                 case let .outcome(generation, outcome):
-                    historyOutcomes[generation, default: []].removeAll { $0 == outcome }
+                    historyOutcomes[generation, default: []].removeAll { $0 == outcome || (outcome == .pasteConfirmed && $0 == .pasteSentUnconfirmed) }
                     historyOutcomes[generation, default: []].append(outcome)
                     for index in history.indices where history[index].generation == generation {
                         history[index].outcomes = historyOutcomes[generation] ?? []
@@ -1187,9 +1192,23 @@ import ServiceManagement
                     let field = await destination.deliveredField(target)
                     correctionWatch.start(pasted: text, field: field, now: ProcessInfo.processInfo.systemUptime)
                 }
+                // Give the target app time to read the clipboard, then read the field once: one more
+                // copy of this delivery's text than before the paste is confirmed; anything
+                // else stays honestly unconfirmed.
+                // An app-level paste has no field to read and keeps the text on the clipboard: no wait.
+                guard target.element != NativeTargets.appLevelElement else { break }
+                let delivered = recovery.text
+                do { try await Task.sleep(for: .milliseconds(400)) } catch { return }
+                guard !quitting else { return }
+                // Secure input can start while the readback runs, before its observation clears recovery.
+                if await destination.pasteLanded(target, text: delivered), !quitting,
+                   !IsSecureEventInputEnabled(), !currentContext().secure {
+                    policy.confirmPaste(token.generation); schedulePump()
+                    // The result pill already said "check editor"; it now says the paste landed.
+                    if !pillActive, !clipOwnsPill, policy.lastOutcomes.last == .pasteConfirmed,
+                       let result = resultDisplay() { pill.show(result, now: ProcessInfo.processInfo.systemUptime) }
+                }
                 if !defaults.bool(forKey: "keepOnClipboard"), NativeTargets.restoresClipboard(after: target) {
-                    do { try await Task.sleep(for: .milliseconds(400)) } catch { return }
-                    guard !quitting else { return }
                     _ = await destination.restoreClipboard()
                 }
             case .clipboardWrite? where wantsPaste && policy.lastSubmittedOutcome == .copied:
@@ -1231,6 +1250,15 @@ import ServiceManagement
             pill.anchor = RecordingPill.cocoaRect(fromAX: caret, primaryTop: top)
         }
     }
+    private func resultDisplay() -> PillContent? {
+        PillDisplay.result(policy.lastOutcomes,
+                           onDevice: speech.backend == .cloud && speech.lastEngine == .apple,
+                           noTextField: lastFocusTookNoText, grokOff: grokLocked,
+                           transcript: policy.recovery?.text,
+                           cleanup: speech.lastFacts?.generation == policy.recovery?.generation ? speech.lastFacts?.cleanup : nil,
+                           recoveryGeneration: policy.recovery?.generation,
+                           controllerGeneration: policy.generation)
+    }
     private func refresh() {
         guard pill != nil else { return }
         let now = ProcessInfo.processInfo.systemUptime
@@ -1250,15 +1278,7 @@ import ServiceManagement
             pillActive = false
             if clipOwnsPill { return }
             if policy.state == .recoverableError { pill.show(.failed(policy.message), now: now) }
-            else if let result = PillDisplay.result(policy.lastOutcomes,
-                        onDevice: speech.backend == .cloud && speech.lastEngine == .apple,
-                        noTextField: lastFocusTookNoText, grokOff: grokLocked,
-                        transcript: policy.recovery?.text,
-                        cleanup: speech.lastFacts?.generation == policy.recovery?.generation ? speech.lastFacts?.cleanup : nil,
-                        recoveryGeneration: policy.recovery?.generation,
-                        controllerGeneration: policy.generation) {
-                pill.show(result, now: now)
-            } else { pill.hide() }
+            else if let result = resultDisplay() { pill.show(result, now: now) } else { pill.hide() }
         }
         if PillDisplay.active(policy.state) == nil, let generation = logTracker.settled() {
             finishLog(generation, failure: policy.state == .recoverableError ? policy.message : nil)

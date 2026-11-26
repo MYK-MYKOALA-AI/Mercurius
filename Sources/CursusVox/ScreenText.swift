@@ -85,10 +85,33 @@ enum ScreenText {
                 switch block { case let .heading(words): return "## " + words; case let .line(words): return words }
             }.joined(separator: "\n\n")
             let source = ScreenText.clipSource(url: url ?? self.url, bundleID: bundleID)
-            return ScreenText.note(title: title, url: source, body: partial
+            return ScreenText.note(title: ScreenText.pageTitle(title, app: site, url: url ?? self.url), url: source, body: partial
                 ? body + "\n\n> Partial capture: some window content could not be read. Return to the source to check what is missing."
                 : body, site: site, now: now)
         }
+    }
+    // Tab states Chromium browsers append to a window title.
+    static let tabStates = ["Audio playing", "Audio muted", "Camera or microphone recording", "Camera recording",
+                            "Microphone recording", "Sharing your screen", "Bluetooth device connected",
+                            "USB device connected", "Network error", "Crashed"]
+    // The page's own title from a window title: no trailing " - <app>", no tab state, and on
+    // YouTube no " - YouTube" or unread-count prefix. Never strips a title down to nothing.
+    static func pageTitle(_ window: String, app: String?, url: String?) -> String {
+        var title = window.trimmingCharacters(in: .whitespaces)
+        func dropSuffix(_ suffix: String) -> Bool {
+            let tail = " - " + suffix
+            guard let range = title.range(of: tail, options: [.anchored, .backwards, .caseInsensitive]),
+                  range.lowerBound > title.startIndex else { return false }
+            title = String(title[..<range.lowerBound]).trimmingCharacters(in: .whitespaces)
+            return true
+        }
+        if let app = app?.trimmingCharacters(in: .whitespaces), !app.isEmpty { _ = dropSuffix(app) }
+        while tabStates.contains(where: dropSuffix) {}
+        if let url, YouTubeTranscript.videoID(url) != nil {
+            let cleaned = YouTubeTranscript.title(fromWindow: title)
+            if !cleaned.isEmpty { title = cleaned }
+        }
+        return title.isEmpty ? window.trimmingCharacters(in: .whitespaces) : title
     }
     // http(s) page address when present; otherwise a stable app:// bundle reference for frontmatter.
     static func clipSource(url: String?, bundleID: String?) -> String {
@@ -412,7 +435,7 @@ actor ScreenReader {
             guard let url, let scheme = URL(string: url)?.scheme, ["http", "https"].contains(scheme) else { return nil }
         }
         var walker = Walker(deadline: deadline, permit: origin.observation.permit)
-        walker.walk(web ?? origin.window)
+        if let web { walker.walkPage(web) } else { walker.walk(origin.window) }
         // Focus moving mid-walk invalidates the capture, however good the words look.
         guard origin.observation.permit.valid else { return nil }
         return ScreenText.Capture(title: origin.title, url: url, blocks: walker.blocks, partial: walker.partial, readFailed: walker.readFailed)
@@ -446,6 +469,51 @@ actor ScreenReader {
         private static let skipped: Set<String> = ["AXSecureTextField", "AXMenuBar", "AXMenu", "AXMenuItem", "AXScrollBar",
                                                    "AXImage", "AXToolbar"]
         private static let inline: Set<String> = ["AXStaticText", "AXLink", "AXTextField", "AXTextArea"]
+        // Page furniture around the content: site header, menus, sidebars, footer, search box.
+        static let furniture: Set<String> = ["AXLandmarkBanner", "AXLandmarkNavigation", "AXLandmarkComplementary",
+                                            "AXLandmarkContentInfo", "AXLandmarkSearch"]
+        // Below this many words a main landmark is a loading shell, not the page's content.
+        static let mainMinimumWords = 20
+
+        // A web page: its main landmark when it has real content, otherwise the whole page;
+        // either way without the page furniture.
+        mutating func walkPage(_ root: AXUIElement) {
+            // A read error while looking for main is not a gap in the clip.
+            let (wasPartial, hadFailure) = (partial, readFailed)
+            let found = findMain(root)
+            (partial, readFailed) = (wasPartial, hadFailure)
+            guard let main = found else { walk(root); return }
+            let start = self
+            walk(main)
+            let words = blocks.reduce(0) { total, block in
+                switch block { case let .heading(w), let .line(w): return total + w.split(whereSeparator: \.isWhitespace).count }
+            }
+            if words < Self.mainMinimumWords { self = start; walk(root) }
+        }
+        // Nodes the main-landmark search may queue; main sits near the top of a page.
+        static let mainSearchNodes = 4000
+        // Breadth-first and shallow, with at most a quarter of the time left (never over 0.25 s), so a
+        // page without a main landmark still has time for the whole-page walk. Same guards as the walk.
+        private mutating func findMain(_ root: AXUIElement) -> AXUIElement? {
+            let until = min(deadline, Date().addingTimeInterval(min(0.25, deadline.timeIntervalSinceNow / 4)))
+            var queue: [(AXUIElement, Int)] = [(root, 0)], index = 0
+            while index < queue.count, Date() < until, permit?.valid != false, !secureInput(), !Task.isCancelled {
+                let (element, depth) = queue[index]; index += 1
+                // Each request is capped by the search time left, so the search never overruns its share.
+                func ready() -> Bool {
+                    let left = until.timeIntervalSinceNow
+                    guard left > 0, permit?.valid != false, !secureInput(), !Task.isCancelled else { return false }
+                    AXUIElementSetMessagingTimeout(element, Float(min(0.05, left)))
+                    return true
+                }
+                guard ready() else { break }
+                if (value(element, "AXSubrole") as String?) == "AXLandmarkMain" { return element }
+                guard depth < 12, queue.count < Self.mainSearchNodes, ready() else { continue }
+                let children: [AXUIElement] = value(element, "AXChildren") ?? []
+                queue += children.prefix(Self.mainSearchNodes - queue.count).map { ($0, depth + 1) }
+            }
+            return nil
+        }
         private enum Step { case visit(AXUIElement, Int), flush, heading(start: Int) }
 
         mutating func walk(_ root: AXUIElement) {
@@ -486,6 +554,8 @@ actor ScreenReader {
                         flush()
                         stack.append(.heading(start: blocks.count))
                     default:
+                        if kind == "AXGroup", let subrole: String = value(element, "AXSubrole"),
+                           Self.furniture.contains(subrole) { continue }
                         if !Self.inline.contains(kind) { flush(); stack.append(.flush) }
                     }
                     let children: [AXUIElement] = value(element, "AXChildren") ?? []
