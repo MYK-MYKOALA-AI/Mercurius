@@ -46,7 +46,8 @@ class PublicBoundary(unittest.TestCase):
             for note in [f'// Fred {date}: paste.', f'// Pat Example, {date}: paste.', f'x // the bubble (Robin {date}).',
                          '// Sol ' + 'r4: a capital.', '// see .' + 'artifacts/bench.md', f'# Robin {date}: a shell note.',
                          f'x = 1 // [Robin {date}]', '// kept (' + f'Sol, Grok and Robin, {date}).', '// Review ' + 'round 2: a fix.',
-                         '// a fix (Sol ' + 'round 2).', '// a fix (' + 'Sol, Grok).']:
+                         '// a fix (Sol ' + 'round 2).', '// a fix (' + 'Sol, Grok).', '// ag' + 'y P3 (' + 'round 2): a fix.',
+                         '// PR #9 ' + 'review ' + 'r5: a fix.', '// Phase A ' + 'review ' + 'r5: a fix.']:
                 source.write_text(note + '\n')
                 self.assertTrue(check.inspect(root, 'Sources/example.swift'), note)
             source.write_text('// Measured 2026' + '-01-02: paste into the focused field.\nlet x = "Pat Example"\n')
@@ -68,6 +69,10 @@ class PublicBoundary(unittest.TestCase):
             self.assertEqual(check.inspect(root, 'Sources/example.swift', terms), [])
             source.write_text('let x = "ZO\u00cb"\n')
             self.assertEqual(check.inspect(root, 'Sources/example.swift', terms), [('private-term', 1)])
+            decomposed = 'Zoe\u0308'
+            source.write_text(f'let x = "{decomposed}"\n')
+            self.assertEqual(check.inspect(root, 'Sources/example.swift', terms), [('private-term', 1)])
+            self.assertTrue(check.has_private_term(f'Sources/{decomposed}.swift', terms))
             named = root / 'Sources/ZzMachine.swift'
             named.write_text('let x = 1\n')
             self.assertEqual(check.inspect(root, 'Sources/ZzMachine.swift', terms), [])

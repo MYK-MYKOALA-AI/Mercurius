@@ -280,7 +280,7 @@ private func mode(_ url: URL) throws -> Int? {
     #expect(try manager.contentsOfDirectory(atPath: outside.appendingPathComponent("Clips").path).isEmpty)
 }
 
-// agy P3 (round 2): a file the save can't stand behind (not read back, or not where it should be)
+// A file the save can't stand behind (not read back, or not where it should be)
 // is removed, so trying again gets the same name rather than leaving an orphan and making " 2".
 @Test func aFileTheSaveRefusesIsRemovedAgain() throws {
     let root = tempRoot()
@@ -342,7 +342,7 @@ private func mode(_ url: URL) throws -> Int? {
     #expect(notes.map(\.title) == ["fresh"] && notes.first?.markdown == "fresh words")
 }
 
-// PR #9 review r5: undecodable notes still count against the startup import's read budget.
+// Undecodable notes still count against the startup import's read budget.
 @Test func undecodableLooseNotesStillUseTheReadBudget() throws {
     let manager = FileManager.default
     let root = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)

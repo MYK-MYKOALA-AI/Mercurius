@@ -118,7 +118,7 @@ private let dictionary = Vocabulary(terms: ["Vercel", "Maelah"])
     }
 }
 
-// PR #5 review: a Dictionary name replaces a sound-alike, never appears from nothing.
+// A Dictionary name replaces a sound-alike, never appears from nothing.
 @Test func dictionaryNamesOnlyReplaceSoundAlikes() {
     let names = Vocabulary(terms: ["Grok", "CursusVox"])
     #expect(TranscriptCleanup.judgeSmart(raw: "Switch to Grog for speech.", output: "Switch to Grok for speech.", vocabulary: names) == .accepted)
@@ -227,7 +227,7 @@ private let dictionary = Vocabulary(terms: ["Vercel", "Maelah"])
     }
 }
 
-// Phase A review r5: acronyms only for plain spoken words; "us" stays "us", technical tokens stay exact.
+// Acronyms only for plain spoken words; "us" stays "us", technical tokens stay exact.
 @Test func acronymsOnlyForPlainWords() {
     let names = Vocabulary(terms: ["Vercel", "Maelah"])
     #expect(TranscriptCleanup.judgeSmart(raw: "send it to us", output: "Send it to US.", vocabulary: names) != .accepted)

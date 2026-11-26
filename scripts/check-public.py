@@ -2,6 +2,7 @@
 """Check tracked/unignored publication files without printing matched secret values."""
 import os
 import re
+import unicodedata
 import struct
 import subprocess
 import sys
@@ -25,6 +26,7 @@ RULES = {
     # Common past-tense verbs ("Measured 2026-10-12") are allowed; names like Fred and Ted are not.
     'dated-person-note': rb'(?://|#|\(|\[)[ \t]*(?!(?:Measured|Checked|Updated|Added|Changed|Verified|Tested|Fixed|Released|Withdrawn|Seen|Noted|Since|Until|Before|After)\b)[A-Z][a-z]+(?: [A-Z][a-z]+)?(?:(?:,| and|, and) [A-Z][a-z]+)*,? \(?[0-9]{4}-[0-9]{2}-[0-9]{2}',
     'review-round-note': rb'(?i:\breview round\b)|\b(?:Sol|Haiku|Opus|Sonnet|Astra|Neon|Gemini|Codex|Muse|Terra|DeepSeek) (?:r|round )[0-9]+\b'
+                         rb'|\bagy\b|\breview r[0-9]+\b|\(round [0-9]+\)|\bPR #[0-9]+ (?:review|branch)\b'
                          rb'|\((?:Sol|Haiku|Opus|Sonnet|Astra|Neon|Codex|Muse|Terra|DeepSeek)(?:(?:,| and|, and) [A-Z][A-Za-z]+)*[,)]',
     'private-path-reference': rb'(?<![A-Za-z0-9_])\.(?:artifacts|planning)/(?=[A-Za-z0-9_.-])',
     'literal-credential': rb'(?i)(?:api[_-]?key|password|secret)\s*[:=]\s*[\x22\x27][A-Za-z0-9_/-]{24,}[\x22\x27]',
@@ -88,17 +90,23 @@ def metadata_present(data, depth=0, atoms=False):
     return False
 
 
+def nfc(text):
+    """Composed and decomposed accents compare equal."""
+    return unicodedata.normalize('NFC', text)
+
+
 def private_terms():
     """Maintainer-only words (names, machines) from a file kept outside the repository."""
     location = os.environ.get('MERCURIUS_PRIVATE_TERMS')
     if not location:
         return []
-    lines = Path(location).read_text(encoding='utf-8').splitlines()
+    lines = nfc(Path(location).read_text(encoding='utf-8')).splitlines()
     return [re.compile(r'(?<!\w)' + re.escape(line.strip()) + r'(?!\w)', re.IGNORECASE)
             for line in lines if line.strip() and not line.lstrip().startswith('#')]
 
 
 def has_private_term(text, terms):
+    text = nfc(text)
     return any(term.search(text) for term in terms)
 
 
@@ -126,7 +134,7 @@ def inspect(root, relative, terms=()):
     found = [(name, data[:m.start()].count(b'\n') + 1)
              for name, pattern in RULES.items() for m in re.finditer(pattern, data)]
     if terms:
-        text = data.decode('utf-8', 'replace')
+        text = nfc(data.decode('utf-8', 'replace'))
         found += [('private-term', text[:m.start()].count('\n') + 1) for term in terms for m in term.finditer(text)]
     if path.name.endswith('Tests.swift'):
         for match in re.finditer(rb'\b(?:let|var)\s+(?:id|documentID|docID|spreadsheetID|presentationID)\s*=\s*"([A-Za-z0-9_-]{25,})"', data):

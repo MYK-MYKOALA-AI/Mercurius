@@ -40,7 +40,9 @@ class BuildBoundary(unittest.TestCase):
             'codesign': '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FIXTURE_LOG"\n'
                         'case "$*" in --verify*Mercurius-install*) [ -z "${FIXTURE_VERIFY_FAIL:-}" ] || exit 1;; esac\n',
             'mv': '#!/bin/sh\ncase "$1" in */.Mercurius-install.*/Mercurius.app) '
-                  '[ -z "${FIXTURE_MV_FAIL:-}" ] || exit 1;; esac\nexec /bin/mv "$@"\n',
+                  '[ -z "${FIXTURE_MV_FAIL:-}" ] || exit 1; '
+                  '[ -z "${FIXTURE_MV_INTERRUPT:-}" ] || { kill -TERM "$PPID"; sleep 1; exit 1; };; esac\n'
+                  'exec /bin/mv "$@"\n',
             'sw_vers': '#!/bin/sh\nprintf "%s\\n" "${FIXTURE_MACOS:-26.1}"\n',
             'security': '#!/bin/sh\nprintf "%s" "$FIXTURE_IDENTITIES"\n',
             'pgrep': '#!/bin/sh\nexit 1\n',
@@ -110,7 +112,7 @@ class BuildBoundary(unittest.TestCase):
         one = f'  1) {dev} "Apple Development: Fixture Person (TEAM000001)"\n     1 valid identities found\n'
         two = one + f'  2) {"B" * 40} "Apple Development: Fixture Other (TEAM000002)"\n'
         for case in ['one', 'none', 'two', 'explicit', 'old-macos', 'foreign-app', 'symlink', 'verify-fails',
-                     'final-move-fails', 'swapped-during-build', 'locked']:
+                     'final-move-fails', 'interrupted', 'swapped-during-build', 'locked']:
             with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
                 parent = Path(directory)
                 root, env = self.fixture(parent)
@@ -134,6 +136,8 @@ class BuildBoundary(unittest.TestCase):
                     env['FIXTURE_VERIFY_FAIL'] = '1'
                 if case == 'final-move-fails':
                     env['FIXTURE_MV_FAIL'] = '1'
+                if case == 'interrupted':
+                    env['FIXTURE_MV_INTERRUPT'] = '1'
                 if case == 'swapped-during-build':
                     env['FIXTURE_SWAP'] = '1'
                 if case == 'locked':
@@ -159,6 +163,7 @@ class BuildBoundary(unittest.TestCase):
                                 'old-macos': 'macOS 26 or later', 'foreign-app': 'is not a Mercurius build',
                                 'symlink': 'is not a Mercurius build', 'verify-fails': '',
                                 'final-move-fails': 'previous Mercurius is back where it was',
+                                'interrupted': 'previous Mercurius is back where it was',
                                 'swapped-during-build': 'is not a Mercurius build',
                                 'locked': 'Another Mercurius install is running'}[case]
                     self.assertIn(expected, result.stderr)
@@ -167,7 +172,7 @@ class BuildBoundary(unittest.TestCase):
                         self.assertTrue(old.is_symlink())
                     else:
                         self.assertEqual((old / 'old').read_text(), 'previous build')
-                    if case not in ['verify-fails', 'final-move-fails', 'swapped-during-build']:
+                    if case not in ['verify-fails', 'final-move-fails', 'interrupted', 'swapped-during-build']:
                         self.assertNotIn('--sign', log)
     def test_install_quits_only_the_installed_copy(self):
         with tempfile.TemporaryDirectory() as directory:

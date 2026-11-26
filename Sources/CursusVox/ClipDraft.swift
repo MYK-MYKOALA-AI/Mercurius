@@ -130,7 +130,7 @@ struct ClipDraft: Codable, Equatable, Sendable {
         return String(text[..<end])
     }
 
-    // YouTube transcript is appended here (YouTubeTranscript.fetch, added on the PR #8 branch).
+    // YouTube transcript is appended here (YouTubeTranscript.fetch).
     // Call it on the extracted draft before the card is offered it; a transcript that arrives
     // later goes through ClipCardModel.offer, which leaves an edited draft alone. The body stays
     // within the budget, and a cut says so in the note.

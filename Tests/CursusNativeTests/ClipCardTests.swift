@@ -206,7 +206,7 @@ private let sample = ClipDraft(title: "Ship it", properties: [.init(name: "sourc
     await card.run(.save)
     #expect(handedAtSave.map(\.title) == ["Edited first"])
     #expect(card.model.saved?.draft.title == "Edited first")
-    // agy P3: the saved path is read out as it is shown, not as "Saves to Saved as …".
+    // The saved path is read out as it is shown, not as "Saves to Saved as …".
     func all(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(all) }
     let path = all(card.panel.contentView!).compactMap { $0 as? NSTextField }.first { $0.stringValue.hasPrefix("Saved as ") }
     #expect(path?.accessibilityLabel() == path?.stringValue && path != nil)

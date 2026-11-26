@@ -41,6 +41,15 @@ mkdir "$TASK_LOCK" 2>/dev/null || {
 }
 TASK_STAGE=
 cleanup() {
+    # Interrupted mid-swap: put the previous copy back, or say where it is.
+    if [ -n "$TASK_STAGE" ] && [ -d "$TASK_STAGE/previous.app" ]; then
+        if [ ! -e "$TASK_DEST" ] && [ ! -L "$TASK_DEST" ] && mv "$TASK_STAGE/previous.app" "$TASK_DEST"; then
+            say 'Stopped part way; your previous Mercurius is back where it was.'
+        else
+            say "Stopped part way. Your previous Mercurius is at $TASK_STAGE/previous.app"
+            TASK_STAGE=
+        fi
+    fi
     [ -z "$TASK_STAGE" ] || rm -rf "$TASK_STAGE/Mercurius.app"
     [ -z "$TASK_STAGE" ] || rmdir "$TASK_STAGE" 2>/dev/null || true
     rmdir "$TASK_LOCK" 2>/dev/null || true
@@ -95,14 +104,12 @@ if [ -d "$TASK_DEST" ]; then
             exit 1
         fi
     fi
-    # Swap by renames on the same disk; if the new copy cannot take its place, the old one goes back.
+    # Recheck after the wait, then swap by renames on the same disk; if the new copy cannot take
+    # its place, the old one goes back.
+    check_destination
     mv "$TASK_DEST" "$TASK_STAGE/previous.app"
     if ! mv "$TASK_STAGE/Mercurius.app" "$TASK_DEST"; then
-        if mv "$TASK_STAGE/previous.app" "$TASK_DEST"; then
-            say 'Could not put the new copy in place; your previous Mercurius is back where it was.'
-        else
-            say "Could not put the new copy in place. Your previous Mercurius is at $TASK_STAGE/previous.app"
-        fi
+        say 'Could not put the new copy in place.'
         exit 1
     fi
     mkdir -p "$HOME/.Trash"

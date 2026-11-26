@@ -74,7 +74,8 @@
             <pre tabindex="0" aria-label="Terminal commands"><code>git clone https://github.com/SHAMALKRISHNA/Mercurius.git
 cd Mercurius
 sh scripts/install.sh</code></pre>
-            <p>It builds Mercurius, puts it in your Applications folder and opens it. To update, run <code>git pull</code> and the script again; the old copy goes to your Trash once the new one is in place. Then allow the microphone and Accessibility, and add an OpenRouter or ElevenLabs key, or use on-device speech with no key at all.</p>
+            <p>It builds Mercurius, signs it with your one Apple Development certificate (or the one you name in <code>MERCURIUS_SIGNING_IDENTITY</code>), puts it in your Applications folder and opens it. To update, run <code>git pull</code> and the script again; the old copy goes to your Trash once the new one is in place.</p>
+            <p>The script reads no keys and uploads nothing. Once open, Mercurius fetches OpenRouter’s public price list, and your ElevenLabs credit balance if you saved that key. Allow the microphone and Accessibility, then add an OpenRouter or ElevenLabs key, or use on-device speech with no key at all.</p>
             <a class="underlined" href="https://github.com/SHAMALKRISHNA/Mercurius/blob/main/scripts/install.sh">Read the script before you run it <span aria-hidden="true">↗</span></a>
           </div>
         </div>
