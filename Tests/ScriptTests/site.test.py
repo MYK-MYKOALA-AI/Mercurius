@@ -96,7 +96,7 @@ class VisitCounter(unittest.TestCase):
 
     def test_only_website_referrers_count(self):
         for referrer in ['android-app://com.example.mail/', 'chrome-extension://abcdefghijklmnop/popup.html',
-                         'file:///Users/someone/page.html', 'about:blank', 'not a url']:
+                         'file:///tmp/page.html', 'about:blank', 'not a url']:
             with self.subTest(referrer=referrer):
                 props = run(host=SITE, referrer=referrer)['sent'][0]['init']['body']['properties']
                 self.assertEqual((props['$referrer'], props['$referring_domain']), ('$direct', '$direct'))
