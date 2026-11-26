@@ -64,6 +64,7 @@ cd Mercurius
 swift test --jobs 2 --no-parallel
 python3 Tests/ScriptTests/public_export.test.py
 python3 Tests/ScriptTests/build.test.py
+python3 Tests/ScriptTests/site.test.py
 python3 scripts/check-public.py
 ```
 
@@ -103,7 +104,7 @@ Code and render scripts use MIT. Original Koa/Mercurius artwork is CC BY 4.0; tr
 
 ## Development
 
-`Sources/CursusCore` owns policy and cleanup rules; `Sources/CursusVox` and `CursusPlatform` adapt native APIs. `Tests` contains deterministic fixtures. `apps/web` is a dependency-free static site with no login or backend. It counts visits with PostHog through `apps/web/assets/visits.js`: a pageview and clicks on links that leave the site, with no cookies, browser storage, person profiles or recordings. It sends nothing on any other host or when Do Not Track or Global Privacy Control is on. The key in that file is PostHog's public, write-only project key. You can preview those static files with any local static server.
+`Sources/CursusCore` owns policy and cleanup rules; `Sources/CursusVox` and `CursusPlatform` adapt native APIs. `Tests` contains deterministic fixtures. `apps/web` is a dependency-free static site with no login or backend. Its home page counts visits with PostHog through `apps/web/assets/visits.js`: a pageview and clicks on links that leave the site, with no cookies, browser storage, person profiles or recordings. Only fixed page names, the referring website and plain campaign tags are sent. It sends nothing on any other origin or when Do Not Track or Global Privacy Control is on. The 404 page counts nothing. The key in that file is PostHog's public, write-only project key. You can preview those static files with any local static server.
 
 Please submit small, reproducible issues and pull requests. Strip private transcripts, recordings, credentials and screenshots before sharing. For confidential reports, follow [SECURITY.md](SECURITY.md).
 
