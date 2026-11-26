@@ -6,6 +6,7 @@ import plistlib
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 
 REPO = Path(__file__).resolve().parents[2]
@@ -34,7 +35,8 @@ class BuildBoundary(unittest.TestCase):
             'uname': '#!/bin/sh\nprintf "%s\\n" "$FIXTURE_ARCH"\n',
             'xcrun': '#!/bin/sh\ncase "$*" in *--show-bin-path*) printf "%s\\n" "$FIXTURE_BIN";; esac\n',
             'plutil': '#!/bin/sh\nexit 0\n',
-            'codesign': '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FIXTURE_LOG"\n',
+            'codesign': '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FIXTURE_LOG"\n'
+                        'case "$1" in --verify) [ -z "${FIXTURE_VERIFY_FAIL:-}" ] || exit 1;; esac\n',
             'sw_vers': '#!/bin/sh\nprintf "%s\\n" "${FIXTURE_MACOS:-26.1}"\n',
             'security': '#!/bin/sh\nprintf "%s" "$FIXTURE_IDENTITIES"\n',
             'pgrep': '#!/bin/sh\nexit 1\n',
@@ -103,41 +105,88 @@ class BuildBoundary(unittest.TestCase):
         dev = 'A' * 40
         one = f'  1) {dev} "Apple Development: Fixture Person (TEAM000001)"\n     1 valid identities found\n'
         two = one + f'  2) {"B" * 40} "Apple Development: Fixture Other (TEAM000002)"\n'
-        for case in ['one', 'none', 'two', 'explicit', 'old-macos']:
+        for case in ['one', 'none', 'two', 'explicit', 'old-macos', 'foreign-app', 'symlink', 'verify-fails']:
             with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
                 parent = Path(directory)
                 root, env = self.fixture(parent)
-                home = parent / 'home'
-                (home / 'Applications/Mercurius.app').mkdir(parents=True)
-                (home / 'Applications/Mercurius.app/old').write_text('previous build')
+                home = parent / 'home with space'
+                old = home / 'Applications/Mercurius.app'
+                (old / 'Contents').mkdir(parents=True)
+                bundle = 'com.example.other' if case == 'foreign-app' else 'au.com.mykoala.mercurius'
+                (old / 'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier': bundle}))
+                (old / 'old').write_text('previous build')
                 (home / 'Applications/Other.app').mkdir()
+                if case == 'symlink':
+                    shutil.rmtree(old)
+                    old.symlink_to(home / 'Applications/Other.app')
                 env['HOME'] = str(home)
                 if case != 'explicit':
                     env.pop('MERCURIUS_SIGNING_IDENTITY')
-                env['FIXTURE_IDENTITIES'] = {'one': one, 'two': two}.get(case, '')
+                env['FIXTURE_IDENTITIES'] = two if case == 'two' else ('' if case == 'none' else one)
                 if case == 'old-macos':
                     env['FIXTURE_MACOS'] = '15.6'
+                if case == 'verify-fails':
+                    env['FIXTURE_VERIFY_FAIL'] = '1'
                 result = subprocess.run(['sh', 'scripts/install.sh'], cwd=root, env=env, capture_output=True, text=True)
                 log = (parent / 'log').read_text() if (parent / 'log').exists() else ''
+                staged = list((home / 'Applications').glob('.Mercurius-install.*'))
+                self.assertEqual(staged, [])
                 if case in ['one', 'explicit']:
                     self.assertEqual(result.returncode, 0, result.stderr)
-                    installed = home / 'Applications/Mercurius.app'
-                    self.assertTrue((installed / 'Contents/MacOS/CursusVox').is_file())
-                    self.assertFalse((installed / 'old').exists())
+                    self.assertTrue((old / 'Contents/MacOS/CursusVox').is_file())
+                    self.assertFalse((old / 'old').exists())
                     trashed = list((home / '.Trash').glob('Mercurius *.app'))
                     self.assertEqual(len(trashed), 1)
                     self.assertEqual((trashed[0] / 'old').read_text(), 'previous build')
                     self.assertTrue((home / 'Applications/Other.app').is_dir())
                     self.assertIn('--sign ' + (dev if case == 'one' else 'Fixture identity'), log)
-                    self.assertIn('open ' + str(installed), log)
+                    self.assertIn('open ' + str(old), log)
                     self.assertEqual(list((root / 'dist').iterdir()), [])
                 else:
                     self.assertNotEqual(result.returncode, 0)
                     expected = {'none': 'Manage Certificates', 'two': 'more than one Apple Development',
-                                'old-macos': 'macOS 26 or later'}[case]
+                                'old-macos': 'macOS 26 or later', 'foreign-app': 'is not a Mercurius build',
+                                'symlink': 'is not a Mercurius build', 'verify-fails': ''}[case]
                     self.assertIn(expected, result.stderr)
-                    self.assertTrue((home / 'Applications/Mercurius.app/old').exists())
-                    self.assertNotIn('--sign', log)
+                    self.assertFalse((home / '.Trash').exists())
+                    if case == 'symlink':
+                        self.assertTrue(old.is_symlink())
+                    else:
+                        self.assertEqual((old / 'old').read_text(), 'previous build')
+                    if case != 'verify-fails':
+                        self.assertNotIn('--sign', log)
+    def test_install_quits_only_the_installed_copy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            parent = Path(directory)
+            root, env = self.fixture(parent)
+            home = parent / 'home'
+            old = home / 'Applications/Mercurius.app'
+            (old / 'Contents/MacOS').mkdir(parents=True)
+            (old / 'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier': 'au.com.mykoala.mercurius'}))
+            decoy = parent / 'Other.app/Contents/MacOS'
+            decoy.mkdir(parents=True)
+            for folder in [old / 'Contents/MacOS', decoy]:
+                shutil.copyfile('/bin/sleep', folder / 'CursusVox')
+                (folder / 'CursusVox').chmod(0o755)
+                # A copied system binary must be re-signed or macOS kills it on launch.
+                subprocess.run(['/usr/bin/codesign', '--force', '--sign', '-', str(folder / 'CursusVox')],
+                               check=True, capture_output=True)
+            running = subprocess.Popen([str(old / 'Contents/MacOS/CursusVox'), '60'])
+            other = subprocess.Popen([str(decoy / 'CursusVox'), '60'])
+            try:
+                time.sleep(0.5)
+                self.assertIsNone(running.poll())
+                self.assertIsNone(other.poll())
+                env['HOME'] = str(home)
+                result = subprocess.run(['sh', 'scripts/install.sh'], cwd=root, env=env, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIsNotNone(running.wait(timeout=5))
+                self.assertIsNone(other.poll())
+            finally:
+                for process in [running, other]:
+                    if process.poll() is None:
+                        process.kill()
+                        process.wait()
 
 
 if __name__ == '__main__':

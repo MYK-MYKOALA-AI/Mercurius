@@ -140,7 +140,7 @@ public enum TranscriptCleanup {
 
     // Whether the AI pass could change anything the guard would accept: a filler,
     // a soft phrase word, or a word repeated close by. If not, the call is skipped
-    // (Muse, 2026-10-13): most dictations land about 0.35 s sooner.
+    // (measured 2026-10-13): most dictations land about 0.35 s sooner.
     public static func hasRemovable(_ text: String, takeBacks: [String] = []) -> Bool {
         let soft = Set(softPhrases.flatMap { $0 })
         var seen = Set<String>()
@@ -548,7 +548,7 @@ public enum TranscriptCleanup {
         return a.isEmpty ? b.count : row[b.count]
     }
     // A spoken plain word written as an acronym ("ai" → "AI", "nasa" → "NASA"). Short everyday words stay as
-    // spoken ("us" never becomes "US"), and technical tokens like "k8s" must come back exactly (Phase A review r5).
+    // spoken ("us" never becomes "US"), and technical tokens like "k8s" must come back exactly.
     static let acronymExclusions: Set<String> = ["us", "it", "me", "we", "or", "so", "no", "an", "as", "at", "be", "by", "do",
                                                  "go", "he", "if", "in", "is", "my", "of", "on", "to", "up", "ok", "hi", "am"]
     static func isAcronym(_ written: String, of spoken: String) -> Bool {

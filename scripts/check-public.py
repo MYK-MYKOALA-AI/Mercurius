@@ -21,7 +21,11 @@ RULES = {
     'slack-token': rb'\bxox[baprs]-[A-Za-z0-9-]{15,}',
     'personal-home-path': rb'/Users/[A-Za-z0-9._-]{2,}/|/home/[A-Za-z0-9._-]{2,}/',
     'internal-ticket': rb'\bMYK-[0-9]+',
-    'dated-person-note': rb'//[ \t]*(?![A-Z][a-z]*ed\b)[A-Z][a-z]+,? \(?[0-9]{4}-[0-9]{2}-[0-9]{2}',
+    # A person's name (or full name) beside a date, after a comment marker or an opening bracket.
+    # Common past-tense verbs ("Measured 2026-10-12") are allowed; names like Fred and Ted are not.
+    'dated-person-note': rb'(?://|\()[ \t]*(?!(?:Measured|Checked|Updated|Added|Changed|Verified|Tested|Fixed|Released|Withdrawn|Seen|Noted|Since|Until|Before|After)\b)[A-Z][a-z]+(?: [A-Z][a-z]+)?,? \(?[0-9]{4}-[0-9]{2}-[0-9]{2}',
+    'review-round-note': rb'\b(?:Sol|Haiku|Opus|Sonnet|Astra|Neon|Gemini|Codex|Muse|Terra) r[0-9]+\b',
+    'private-path-reference': rb'(?<![A-Za-z0-9_])\.(?:artifacts|planning)/(?=[A-Za-z0-9_.-])',
     'literal-credential': rb'(?i)(?:api[_-]?key|password|secret)\s*[:=]\s*[\x22\x27][A-Za-z0-9_/-]{24,}[\x22\x27]',
 }
 

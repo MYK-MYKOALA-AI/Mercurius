@@ -1,10 +1,12 @@
 #!/bin/sh
 # One-command install from source: builds Mercurius, signs it with your own Apple identity and
-# puts it in ~/Applications. Reads no provider keys and sends nothing anywhere. An older copy at
-# ~/Applications/Mercurius.app goes to your Trash; nothing else is replaced.
+# puts it in ~/Applications. The script reads no API keys and uploads nothing. It replaces only a
+# previous Mercurius build at ~/Applications/Mercurius.app (checked by bundle ID), which goes to
+# your Trash after the new copy is verified.
 set -eu
 TASK_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
 cd "$TASK_ROOT"
+TASK_BUNDLE_ID=au.com.mykoala.mercurius
 say() { printf '%s\n' "$*" >&2; }
 [ "$(uname -m)" = arm64 ] || { say 'Mercurius needs an Apple Silicon Mac.'; exit 1; }
 TASK_MAJOR=$(sw_vers -productVersion | cut -d. -f1)
@@ -13,6 +15,19 @@ xcrun --find swift >/dev/null 2>&1 || {
     say 'Install Xcode from the App Store, open it once to finish setup, then run this again.'
     exit 1
 }
+TASK_DEST="$HOME/Applications/Mercurius.app"
+TASK_EXECUTABLE="$TASK_DEST/Contents/MacOS/CursusVox"
+if [ -L "$TASK_DEST" ] || { [ -e "$TASK_DEST" ] && [ ! -d "$TASK_DEST" ]; }; then
+    say "$TASK_DEST is not a Mercurius build; move it away and run this again."
+    exit 1
+fi
+if [ -d "$TASK_DEST" ]; then
+    TASK_EXISTING=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$TASK_DEST/Contents/Info.plist" 2>/dev/null || true)
+    [ "$TASK_EXISTING" = "$TASK_BUNDLE_ID" ] || {
+        say "$TASK_DEST is not a Mercurius build; move it away and run this again."
+        exit 1
+    }
+fi
 if [ -z "${MERCURIUS_SIGNING_IDENTITY:-}" ]; then
     # Your own certificate, found by its fingerprint. A free Apple ID in Xcode is enough.
     TASK_IDENTITIES=$(security find-identity -v -p codesigning 2>/dev/null || true)
@@ -37,22 +52,35 @@ if [ -z "${MERCURIUS_SIGNING_IDENTITY:-}" ]; then
     }
     export MERCURIUS_SIGNING_IDENTITY
 fi
-TASK_APP=$(sh scripts/build-app.sh | tail -n 1)
+TASK_BUILT=$(sh scripts/build-app.sh)
+TASK_APP=$(printf '%s\n' "$TASK_BUILT" | tail -n 1)
 [ -d "$TASK_APP" ] || { say 'The build did not produce an app.'; exit 1; }
-TASK_DEST="$HOME/Applications/Mercurius.app"
+# Stage next to the destination and verify there, so a failed copy never touches the installed app.
 mkdir -p "$HOME/Applications"
-if [ -e "$TASK_DEST" ] || [ -L "$TASK_DEST" ]; then
-    # Quit only the copy installed here, never another app that shares the executable name.
-    if pgrep -f "$TASK_DEST/Contents/MacOS/" >/dev/null 2>&1; then
-        osascript -e 'tell application id "au.com.mykoala.mercurius" to quit' >/dev/null 2>&1 || true
-        sleep 2
+TASK_STAGE=$(mktemp -d "$HOME/Applications/.Mercurius-install.XXXXXXXX")
+trap 'rm -rf "$TASK_STAGE"' EXIT HUP INT TERM
+ditto "$TASK_APP" "$TASK_STAGE/Mercurius.app"
+codesign --verify --strict "$TASK_STAGE/Mercurius.app"
+rm -rf "$(dirname -- "$TASK_APP")"
+if [ -d "$TASK_DEST" ]; then
+    # Quit only processes running this exact installed executable.
+    TASK_PIDS=$(ps -axo pid=,comm= | awk -v exe="$TASK_EXECUTABLE" '{ pid = $1; sub(/^ *[0-9]+ /, ""); if ($0 == exe) print pid }')
+    if [ -n "$TASK_PIDS" ]; then
+        kill -TERM $TASK_PIDS 2>/dev/null || true
+        TASK_WAIT=0
+        while [ "$TASK_WAIT" -lt 10 ] && ps -axo comm= | grep -Fqx "$TASK_EXECUTABLE"; do
+            sleep 1
+            TASK_WAIT=$((TASK_WAIT + 1))
+        done
+        if ps -axo comm= | grep -Fqx "$TASK_EXECUTABLE"; then
+            say 'Mercurius is still running. Quit it from the menu bar and run this again.'
+            exit 1
+        fi
     fi
     mkdir -p "$HOME/.Trash"
-    mv "$TASK_DEST" "$HOME/.Trash/Mercurius $(date +%Y-%m-%d-%H%M%S).app"
+    mv "$TASK_DEST" "$HOME/.Trash/Mercurius $(date +%Y-%m-%d-%H%M%S)-$$.app"
 fi
-ditto "$TASK_APP" "$TASK_DEST"
-rm -rf "$(dirname -- "$TASK_APP")"
-codesign --verify --strict "$TASK_DEST"
+mv "$TASK_STAGE/Mercurius.app" "$TASK_DEST"
 printf '%s\n' "Installed $TASK_DEST"
 if [ "${MERCURIUS_NO_OPEN:-}" != 1 ]; then
     open "$TASK_DEST"

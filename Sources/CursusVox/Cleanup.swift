@@ -50,7 +50,7 @@ struct CleanupOutcome: Equatable, Sendable {
     // reported charge and was recorded as a plain failure. Anything above responseLimit is still
     // rejected, but only after the charge has been read.
     nonisolated static let readCeiling = 1024 * 1024
-    // Measured 2026-10-12 on 25 cases (.artifacts/model-bench/cleanup_bench.py):
+    // Measured 2026-10-12 on 25 cases:
     // gpt-oss-120b on Groq (0.25 s a call), then Cerebras, then whichever host is
     // fastest; unpinned, OpenRouter sent it to Nebius at 0.85-1.6 s and every case
     // missed the budget. Gemini 3.1 Flash Lite is the backup. Free endpoints were unusable.
@@ -62,7 +62,7 @@ struct CleanupOutcome: Equatable, Sendable {
         var name: String = ""; var trains = false; var budget: TimeInterval = AICleanup.budget
         static let thinkingOff = "off"
     }
-    // Measured 2026-10-13 on 30 cases through this guard (.artifacts/model-bench/models-20261013.md).
+    // Measured 2026-10-13 on 30 cases through this guard.
     nonisolated static let catalog = [
         Model(id: "openai/gpt-oss-120b", providers: ["Groq", "Cerebras"], reasoning: "low",
               name: "gpt-oss-120b on Groq · 0.4 s · recommended"),
@@ -86,7 +86,7 @@ struct CleanupOutcome: Equatable, Sendable {
     ] + freeModels
     // Free models, for testing: slow (2-6 s) and limited to about 20 requests a minute
     // per account, so each gets a longer wait. Nemotron/Cohere measured 2026-10-13,
-    // MiniMax and DeepSeek V4 Flash measured 2026-10-22 (.artifacts/model-bench).
+    // MiniMax and DeepSeek V4 Flash measured 2026-10-22.
     nonisolated static let freeModels: [Model] = [
         Model(id: "minimax/minimax-m3.1-flash:free", providers: [], reasoning: "low",
               name: "MiniMax M3.1 Flash · free · trains on your text", trains: true, budget: 4),
@@ -157,7 +157,7 @@ struct CleanupOutcome: Equatable, Sendable {
     // live OpenRouter catalogue (free first, then cheapest), so a new model can be
     // tried the day it appears instead of waiting for an app update. Unmeasured
     // models get a long budget and, when free, the training warning; they earn a
-    // place in the catalog above only by passing the bench in .artifacts/model-bench.
+    // place in the catalog above only by passing the bench.
     nonisolated static func pickerModels(from catalogue: [CatalogModel]) -> [Model] {
         let known = Set(catalog.map(\.id))
         let extras = catalogue.filter { $0.outputsText && !$0.transcription && !known.contains($0.id) && !isBatch($0.id) }

@@ -431,7 +431,7 @@ private let vocabulary = Vocabulary(terms: ["CursusVox", "Grok", "OpenRouter", "
     #expect(TranscriptCleanup.judge(raw: "Call it with ().", output: "Call it with ().", vocabulary: vocabulary) == .accepted)
 }
 
-// Sol r24 sweep: the rule pass changes only what it removes.
+// The rule pass changes only what it removes.
 @Test func rulesChangeOnlyWhatTheyRemove() {
     let kept = [
         "Compare x --x now.", "Compare x -x now.",             // dash prefixes are not stutters
@@ -463,7 +463,7 @@ private let vocabulary = Vocabulary(terms: ["CursusVox", "Grok", "OpenRouter", "
     #expect(TranscriptCleanup.rules(spaced, vocabulary: vocabulary) == "Hello" + String(repeating: " ", count: 12_000) + "world")
 }
 
-// Code, commands, paths and quotations are never cleaned (Sol and Haiku r25).
+// Code, commands, paths and quotations are never cleaned.
 @Test func technicalTextIsLeftExactlyAsSpoken() {
     let technical = [
         "if ! true; then echo bad; fi", "echo 'hello um world'", "echo \"hello um world\"", "alpha\num\n    beta",
@@ -502,7 +502,7 @@ private let vocabulary = Vocabulary(terms: ["CursusVox", "Grok", "OpenRouter", "
 }
 
 // Self-corrections are kept as spoken: by shape alone "three, no, four" can't be
-// told from "Hi Jordan, sorry, I'm late" (Sol and Haiku r27).
+// told from "Hi Jordan, sorry, I'm late".
 @Test func selfCorrectionsAndGreetingsAreKeptAsSpoken() {
     for (raw, out) in [("Hi, sorry, I'm late.", "I'm late."), ("Yeah, no, I'm good.", "I'm good."),
                        ("Okay, wait, let me check.", "Let me check."), ("Hi Jordan, sorry, I'm late.", "I'm late."),

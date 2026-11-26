@@ -27,7 +27,7 @@ class PublicBoundary(unittest.TestCase):
                           '-----BEGIN ' + 'PRIVATE KEY-----', '/Users/' + 'private-user/config']:
                 source.write_text(value)
                 self.assertTrue(check.inspect(root, 'Sources/example.swift'))
-            for name in ['.env.local', '.planning/PLAN.md', 'Resources/account.keychain-db',
+            for name in ['.env.local', '.' + 'planning/PLAN.md', 'Resources/account.keychain-db',
                          'Resources/user.wav', 'Design/Koa/koa.blend']:
                 self.assertTrue(check.inspect(root, name))
             linked = root / 'Sources/linked.swift'
@@ -40,9 +40,14 @@ class PublicBoundary(unittest.TestCase):
             root = Path(directory)
             source = root / 'Sources/example.swift'
             source.parent.mkdir()
-            source.write_text('// ' + 'Robin 2026-01-02: paste into the focused field.\n')
+            source.write_text('// ' + 'Robin 2026' + '-01-02: paste into the focused field.\n')
             self.assertEqual(check.inspect(root, 'Sources/example.swift'), [('dated-person-note', 1)])
-            source.write_text('// Measured 2026-01-02: paste into the focused field.\nlet x = "Pat Example"\n')
+            date = '2026' + '-01-02'
+            for note in [f'// Fred {date}: paste.', f'// Pat Example, {date}: paste.', f'x // the bubble (Robin {date}).',
+                         '// Sol ' + 'r4: a capital.', '// see .' + 'artifacts/bench.md']:
+                source.write_text(note + '\n')
+                self.assertEqual(len(check.inspect(root, 'Sources/example.swift')), 1, note)
+            source.write_text('// Measured 2026' + '-01-02: paste into the focused field.\nlet x = "Pat Example"\n')
             self.assertEqual(check.inspect(root, 'Sources/example.swift'), [])
             listed = root / 'terms.txt'
             listed.write_text('# maintainer words\n\npat example\nzz-machine\n')

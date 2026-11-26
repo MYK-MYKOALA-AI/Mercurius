@@ -83,7 +83,7 @@ private func compare(_ before: String, _ pasted: String, _ now: String,
 }
 
 @Test func editsOutsideThePastedTextAreIgnoredAndWatchingGoesOn() {
-    // Sol r1: typing "Vercel" after the pasted text must not teach "Vassal -> Vercel".
+    // Typing "Vercel" after the pasted text must not teach "Vassal -> Vercel".
     #expect(compare("Deploy on Vassal", "Deploy on Vassal", "Deploy on Vassal Vercel") == .outside(at: 0))
     // An edit before the pasted text moves it along.
     #expect(compare("Title\nDeploy on Vassal", "Deploy on Vassal", "New title\nDeploy on Vassal") == .outside(at: 10))
@@ -98,13 +98,13 @@ private func compare(_ before: String, _ pasted: String, _ now: String,
         ("I want the red one.", "I want the blue one."),                          // a change of mind
         ("Deploy it on Vassal tonight.", "Deploy it on V tonight."),              // too short
         ("Call me at 5.", "Call me at 6."),                                       // numbers
-        ("we ship on monday", "we ship on Monday"),                               // Haiku r1: a capital, not a name
+        ("we ship on monday", "we ship on Monday"),                               // A capital, not a name
         ("copy the sync folder", "copy the Syncthing folder")                    // different first letter? no: same "s"
     ]
     for (pasted, now) in cases.dropLast() {
         #expect(compare(pasted, pasted, now) == .rewritten, "\(now)")
     }
-    // Haiku r1: a real word heard ("sync") never becomes a global replacement.
+    // A real word heard ("sync") never becomes a global replacement.
     #expect(compare("copy the sync folder", "copy the sync folder", "copy the Syncthing folder")
             == .learned(.init(heard: "sync", correct: "Syncthing", addsReplacement: false)))
 }
@@ -134,7 +134,7 @@ private func compare(_ before: String, _ pasted: String, _ now: String,
 }
 
 @Test func onlyThePastedCopyCountsWhenTheSameWordsAppearTwice() {
-    // Sol r2: the paste is the FIRST copy (caret after it); editing the older second copy teaches nothing.
+    // The paste is the FIRST copy (caret after it); editing the older second copy teaches nothing.
     let before = "Deploy on Vassal. Deploy on Vassal."
     let first = CorrectionLearner.compare(before: before, pastedAt: 0, pasted: "Deploy on Vassal.",
                                           now: "Deploy on Vassal. Deploy on Vercel.")
@@ -147,7 +147,7 @@ private func compare(_ before: String, _ pasted: String, _ now: String,
 }
 
 @Test func extendingAWordIsNotAFix() {
-    // Haiku r2: "Maelah" -> "Maelah's" must not rewrite every later "Maelah".
+    // "Maelah" -> "Maelah's" must not rewrite every later "Maelah".
     #expect(compare("ping Maelah about it", "ping Maelah about it", "ping Maelah's about it") == .rewritten)
     #expect(compare("ship to Vassal", "ship to Vassal", "ship to Vassals") == .rewritten)
 }
@@ -177,7 +177,7 @@ private func compare(_ before: String, _ pasted: String, _ now: String,
 }
 
 @Test func theFastPathSeesALongRepeat() {
-    // Sol r2: a nine-word repeat in one sentence must still reach the AI pass.
+    // A nine-word repeat in one sentence must still reach the AI pass.
     #expect(TranscriptCleanup.hasRemovable(
         "Please send the final invoice to our Australian customer, Please send the final invoice to our Australian customer."))
 }
@@ -218,7 +218,7 @@ private func compare(_ before: String, _ pasted: String, _ now: String,
         ("deploy on the box", "deploy Docker"),                     // a run that doesn't spell the name
         ("we use a super big base now", "we use Supabase now"),     // four words into one
         ("we use super base now", "we use Super Base now"),         // two words stay two
-        ("me as well", "me aswel"),                                 // Sol r1: a typo, not a name
+        ("me as well", "me aswel"),                                 // A typo, not a name
         ("ask Catie to join", "ask katie to join"),                  // no capital: not a name
     ]
     for (pasted, now) in cases { #expect(compare(pasted, pasted, now) == .rewritten, "\(now)") }
