@@ -2,6 +2,7 @@
 from pathlib import Path
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -34,7 +35,7 @@ const context = {
   fetch: scenario.noFetch ? undefined : (url, init) => { sent.push({ url, init: { ...init, body: JSON.parse(init.body) } }); return Promise.resolve(); },
 };
 for (const name of ['localStorage', 'sessionStorage', 'indexedDB']) Object.defineProperty(context, name, guard(name));
-Object.defineProperty(window, 'localStorage', guard('window.localStorage'));
+for (const name of ['localStorage', 'sessionStorage', 'indexedDB']) Object.defineProperty(window, name, guard('window.' + name));
 vm.runInNewContext(source, context);
 for (const href of scenario.clicks || []) listeners.click && listeners.click({ target: new Element(href) });
 console.log(JSON.stringify({ sent, touched }));
@@ -47,7 +48,7 @@ def run(**scenario):
     return json.loads(result.stdout)
 
 
-@unittest.skipUnless(shutil.which('node'), 'node is needed to run the visit counter')
+@unittest.skipUnless(shutil.which('node') or os.environ.get('CI'), 'node is needed to run the visit counter')
 class VisitCounter(unittest.TestCase):
     def test_silent_off_the_site_and_when_asked_not_to_track(self):
         for scenario in [dict(host='localhost'), dict(host='example.github.io'), dict(host=SITE + '.evil.test'),
@@ -74,7 +75,7 @@ class VisitCounter(unittest.TestCase):
         props = body['properties']
         self.assertIs(props['$process_person_profile'], False)
         self.assertEqual(props['$current_url'], f'https://{SITE}/')
-        self.assertEqual(props['$referrer'], 'https://news.example')
+        self.assertEqual((props['$referrer'], props['$referring_domain']), ('other', 'other'))
         self.assertEqual(props['utm_source'], 'newsletter')
         self.assertNotIn('someone', json.dumps(body))
         self.assertEqual(request['init']['referrerPolicy'], 'no-referrer')
@@ -82,17 +83,35 @@ class VisitCounter(unittest.TestCase):
 
     def test_never_sends_what_a_visitor_typed(self):
         result = run(host=SITE, path='/invite/someone@example.com',
-                     search='?utm_source=someone%40example.com&utm_medium=email&utm_campaign=Jane%20Doe'
+                     search='?utm_source=someone%40example.com&utm_medium=email&utm_campaign=Jane.Doe'
                             '&utm_content=someone%40example.com&utm_term=secret')
         body = result['sent'][0]['init']['body']
-        self.assertNotIn('someone', json.dumps(body))
-        self.assertNotIn('Jane', json.dumps(body))
-        self.assertNotIn('secret', json.dumps(body))
+        for private in ['someone', 'Jane', 'secret']:
+            self.assertNotIn(private, json.dumps(body))
         self.assertEqual(body['properties']['$pathname'], '/other')
         self.assertEqual(body['properties']['$current_url'], f'https://{SITE}/other')
+        self.assertEqual(body['properties']['utm_source'], 'other')
         self.assertEqual(body['properties']['utm_medium'], 'email')
-        for name in ['utm_source', 'utm_campaign', 'utm_content', 'utm_term']:
+        for name in ['utm_campaign', 'utm_content', 'utm_term']:
             self.assertNotIn(name, body['properties'])
+
+    def test_campaign_tags_are_known_labels_or_other(self):
+        for source, medium, expected in [('LinkedIn', 'Social', ('linkedin', 'social')),
+                                         ('Jane.Doe', 'customer-12345', ('other', 'other')),
+                                         ('0400000000', 'email', ('other', 'email'))]:
+            with self.subTest(source=source):
+                props = run(host=SITE, search=f'?utm_source={source}&utm_medium={medium}&utm_campaign=Jane.Doe'
+                            )['sent'][0]['init']['body']['properties']
+                self.assertEqual((props['utm_source'], props['utm_medium']), expected)
+                self.assertNotIn('utm_campaign', props)
+
+    def test_only_known_referring_sites_are_named(self):
+        for referrer, expected in [('https://www.google.com.au/', 'google'), ('https://www.linkedin.com/feed/', 'linkedin.com'),
+                                   ('https://t.co/abc', 't.co'), ('https://jane-doe.portal.example/inbox', 'other'),
+                                   ('https://customer-12345.example.com/', 'other'), ('https://google.evil.example/', 'other')]:
+            with self.subTest(referrer=referrer):
+                props = run(host=SITE, referrer=referrer)['sent'][0]['init']['body']['properties']
+                self.assertEqual((props['$referrer'], props['$referring_domain']), (expected, expected))
 
     def test_only_website_referrers_count(self):
         for referrer in ['android-app://com.example.mail/', 'chrome-extension://abcdefghijklmnop/popup.html',
@@ -112,7 +131,8 @@ class VisitCounter(unittest.TestCase):
         events = [request['init']['body'] for request in result['sent']]
         self.assertEqual([event['event'] for event in events], ['$pageview', 'outbound_link_clicked'])
         self.assertEqual(events[1]['properties']['link_host'], 'github.com')
-        self.assertEqual(events[1]['properties']['link_path'], '/SHAMALKRISHNA/Mercurius')
+        self.assertNotIn('link_path', events[1]['properties'])
+        self.assertNotIn('SHAMALKRISHNA', json.dumps(events[1]))
         self.assertEqual(events[0]['distinct_id'], events[1]['distinct_id'])
 
 
@@ -129,6 +149,7 @@ class SitePages(unittest.TestCase):
 
     def test_every_page_loads_only_hashed_self_hosted_files(self):
         expected = {'index.html': ['assets/visits.js', 'styles.css'], '404.html': ['styles.css']}
+        self.assertEqual(sorted(p.relative_to(WEB).as_posix() for p in WEB.glob('**/*.html')), sorted(expected))
         for page, files in expected.items():
             html = (WEB / page).read_text()
             with self.subTest(page=page):
@@ -142,9 +163,9 @@ class SitePages(unittest.TestCase):
                     self.assertEqual(hashlib.sha256((WEB / name).read_bytes()).hexdigest()[:8], tag, name)
 
     def test_only_pages_that_say_so_count_visits(self):
-        for page in ['index.html', '404.html']:
-            html = (WEB / page).read_text()
-            with self.subTest(page=page):
+        for path in WEB.glob('**/*.html'):
+            html = path.read_text()
+            with self.subTest(page=path.name):
                 if 'visits.js' in html:
                     self.assertIn('counts visits and clicks on links to other sites with PostHog', html)
         self.assertNotIn('visits.js', (WEB / '404.html').read_text())

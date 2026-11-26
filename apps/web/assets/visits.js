@@ -1,7 +1,8 @@
 // Counts visits to this site's home page with PostHog: one pageview per page load and clicks on
 // links that leave the site. No cookies, no browser storage, no person profiles and no recording;
-// each page load gets a fresh random id that is never saved. Only fixed page names, the referring
-// website and plain campaign tags are sent, never a full URL or query string. Nothing is sent on
+// each page load gets a fresh random id that is never saved. Only fixed page names, a known referring
+// site or "other", known campaign sources and media, and the host of a link clicked are sent, never a
+// full URL, path or query string. Nothing is sent on
 // any other origin (forks and local copies stay silent) or when the browser asks not to be
 // tracked (Do Not Track or Global Privacy Control). The project key is PostHog's public,
 // write-only client key.
@@ -24,21 +25,30 @@
   }
   // Known pages keep their name; anything else is reported as one fixed name, never as typed.
   const page = location.pathname === '/' || location.pathname === '/index.html' ? '/' : '/other';
-  // Campaign tags pass only as short plain labels, so an address or name in a link never does.
+  // Campaign tags are matched against fixed lists; anything else is reported as "other", so a name,
+  // address or customer number in a link never leaves the browser. Campaign names are not sent.
+  const sources = ['x', 'twitter', 'linkedin', 'instagram', 'threads', 'facebook', 'tiktok', 'youtube', 'reddit',
+    'hackernews', 'producthunt', 'github', 'bluesky', 'mastodon', 'newsletter', 'mykoala'];
+  const mediums = ['social', 'email', 'referral', 'video', 'post', 'bio', 'community'];
   const campaign = {};
   const query = new URLSearchParams(location.search);
-  for (const name of ['utm_source', 'utm_medium', 'utm_campaign']) {
-    const value = query.get(name);
-    if (value && /^[A-Za-z0-9._-]{1,40}$/.test(value)) campaign[name] = value;
+  for (const [name, known] of [['utm_source', sources], ['utm_medium', mediums]]) {
+    const value = (query.get(name) || '').toLowerCase();
+    if (value) campaign[name] = known.includes(value) ? value : 'other';
   }
-  // Only a website referrer counts; app, extension and file referrers are direct visits.
-  let referrer = '$direct';
+  // Only well-known referring sites are named; any other website is "other" (its address could carry
+  // a name), and app, extension and file referrers are direct visits.
+  const knownSites = ['google', 'bing.com', 'duckduckgo.com', 'search.brave.com', 'x.com', 't.co', 'twitter.com',
+    'linkedin.com', 'lnkd.in', 'facebook.com', 'l.facebook.com', 'instagram.com', 'l.instagram.com', 'threads.net',
+    'threads.com', 'reddit.com', 'old.reddit.com', 'news.ycombinator.com', 'github.com', 'producthunt.com',
+    'youtube.com', 'tiktok.com', 'bsky.app', 'chatgpt.com', 'perplexity.ai', 'mykoala.com.au'];
   let referringDomain = '$direct';
   try {
     const from = document.referrer ? new URL(document.referrer) : null;
-    if (from && /^https?:$/.test(from.protocol) && from.host) {
-      referrer = from.origin;
-      referringDomain = from.host;
+    if (from && /^https?:$/.test(from.protocol) && from.hostname) {
+      const host = from.hostname.toLowerCase().replace(/^www\./, '');
+      const name = /(^|\.)google\.[a-z]{2,3}(\.[a-z]{2})?$/.test(host) ? 'google' : host;
+      referringDomain = knownSites.includes(name) ? name : 'other';
     }
   } catch (error) {
     // An unreadable referrer counts as direct.
@@ -55,7 +65,7 @@
         $host: site,
         $pathname: page,
         $current_url: 'https://' + site + page,
-        $referrer: referrer,
+        $referrer: referringDomain,
         $referring_domain: referringDomain
       }, campaign, extra)
     });
@@ -75,6 +85,6 @@
     let target;
     try { target = new URL(link.href); } catch (error) { return; }
     if (target.host === site || !/^https?:$/.test(target.protocol)) return;
-    send('outbound_link_clicked', { link_host: target.host, link_path: target.pathname });
+    send('outbound_link_clicked', { link_host: target.hostname });
   }, { capture: true, passive: true });
 })();
